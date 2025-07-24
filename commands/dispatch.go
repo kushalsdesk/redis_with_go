@@ -20,6 +20,10 @@ func Dispatch(args []string, conn net.Conn) {
 		handleSet(args, conn)
 	case "GET":
 		handleGet(args, conn)
+	case "LPUSH":
+		handleLpush(args, conn)
+	case "RPUSH":
+		handleRPush(args, conn)
 
 	default:
 		conn.Write([]byte("-ERR unknown command\r\n"))
