@@ -14,59 +14,61 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 
 ## Implementation Progress
 
-### [Phase 1: Basic Server & String Operations](./Docs/phase1.md) - **COMPLETED**
+> **Difficulty Levels:** 🟩 Easy | 🟨 Medium | 🟥 Hard
 
-- [x] Bind to a port *(Easy)*
-- [x] Respond to PING *(Easy)*
-- [x] Respond to multiple PINGS *(Easy)*
-- [x] Handle concurrent clients *(Medium)*
-- [x] Implement the ECHO command *(Easy)*
-- [x] Implement the SET & GET command *(Medium)*
-- [x] Expiry *(Medium)*
+### [Phase 1: Basic Server & String Operations](./docs/phase1.md) - **COMPLETED**
 
-### [Phase 2: Lists](./Docs/phase2.md) - **IN PROGRESS**
+- [x] Bind to a port ................................................... 🟩⬜⬜
+- [x] Respond to PING .................................................. 🟩⬜⬜
+- [x] Respond to multiple PINGS ........................................ 🟩⬜⬜
+- [x] Handle concurrent clients ........................................ 🟩🟨⬜
+- [x] Implement the ECHO command ....................................... 🟩⬜⬜
+- [x] Implement the SET & GET command .................................. 🟩🟨⬜
+- [x] Expiry ........................................................... 🟩🟨⬜
 
-- [x] Create a list *(Easy)*
-- [x] Append an element (RPUSH) *(Easy)*
-- [x] Append multiple elements *(Easy)*
-- [ ] List elements (positive indexes) *(Medium)*
-- [ ] List elements (negative indexes) *(Medium)*
-- [x] Prepend elements (LPUSH) *(Easy)*
-- [ ] Query list length *(Easy)*
-- [ ] Remove an element *(Medium)*
-- [ ] Remove multiple elements *(Medium)*
-- [ ] Blocking retrieval *(Hard)*
-- [ ] Blocking retrieval with timeout *(Hard)*
+### [Phase 2: Lists](./docs/phase2.md) - **IN PROGRESS**
 
-### [Phase 3: Streams](./Docs/phase3.md) - **NOT STARTED**
+- [x] Create a list ................................................... 🟩⬜⬜
+- [x] Append an element (RPUSH) ....................................... 🟩⬜⬜
+- [x] Append multiple elements ........................................ 🟩⬜⬜
+- [x] List elements (positive indexes) ................................ 🟩🟨⬜
+- [x] List elements (negative indexes) ................................ 🟩🟨⬜
+- [x] Prepend elements (LPUSH) ........................................ 🟩⬜⬜
+- [x] Query list length ............................................... 🟩⬜⬜
+- [ ] Remove an element ............................................... 🟩🟨⬜
+- [ ] Remove multiple elements ........................................ 🟩🟨⬜
+- [ ] Blocking retrieval .............................................. 🟩🟨🟥
+- [ ] Blocking retrieval with timeout ................................. 🟩🟨🟥
 
-- [ ] The TYPE command *(Easy)*
-- [ ] Create a stream *(Medium)*
-- [ ] Validating entry IDs *(Hard)*
-- [ ] Partially auto-generate IDs *(Medium)*
-- [ ] Fully auto-generate IDs *(Medium)*
-- [ ] Query entries into stream *(Medium)*
-- [ ] Query with - *(Medium)*
-- [ ] Query with + *(Medium)*
-- [ ] Query single stream using XREAD *(Hard)*
-- [ ] Query multiple streams using XREAD *(Hard)*
-- [ ] Blocking reads *(Hard)*
-- [ ] Blocking reads without timeout *(Hard)*
-- [ ] Blocking reads using $ *(Hard)*
+### [Phase 3: Streams](./docs/phase3.md) - **NOT STARTED**
 
-### [Phase 4: Transactions](./Docs/phase4.md) - **NOT STARTED**
+- [ ] The TYPE command ................................................ 🟩⬜⬜
+- [ ] Create a stream ................................................. 🟩🟨⬜
+- [ ] Validating entry IDs ............................................ 🟩🟨🟥
+- [ ] Partially auto-generate IDs ..................................... 🟩🟨⬜
+- [ ] Fully auto-generate IDs ......................................... 🟩🟨⬜
+- [ ] Query entries into stream ....................................... 🟩🟨⬜
+- [ ] Query with - .................................................... 🟩🟨⬜
+- [ ] Query with + .................................................... 🟩🟨⬜
+- [ ] Query single stream using XREAD ................................. 🟩🟨🟥
+- [ ] Query multiple streams using XREAD .............................. 🟩🟨🟥
+- [ ] Blocking reads .................................................. 🟩🟨🟥
+- [ ] Blocking reads without timeout .................................. 🟩🟨🟥
+- [ ] Blocking reads using $ .......................................... 🟩🟨🟥
 
-- [ ] The INCR command (1/3) *(Easy)*
-- [ ] The INCR command (2/3) *(Medium)*
-- [ ] The INCR command (3/3) *(Medium)*
-- [ ] The MULTI command *(Medium)*
-- [ ] The EXEC command *(Hard)*
-- [ ] Empty transaction *(Medium)*
-- [ ] Queueing commands *(Hard)*
-- [ ] Executing a transaction *(Hard)*
-- [ ] The DISCARD command *(Medium)*
-- [ ] Failures within transactions *(Hard)*
-- [ ] Multiple transactions *(Hard)*
+### [Phase 4: Transactions](./docs/phase4.md) - **NOT STARTED**
+
+- [ ] The INCR command (1/3) .......................................... 🟩⬜⬜
+- [ ] The INCR command (2/3) .......................................... 🟩🟨⬜
+- [ ] The INCR command (3/3) .......................................... 🟩🟨⬜
+- [ ] The MULTI command ............................................... 🟩🟨⬜
+- [ ] The EXEC command ................................................ 🟩🟨🟥
+- [ ] Empty transaction ............................................... 🟩🟨⬜
+- [ ] Queueing commands ............................................... 🟩🟨🟥
+- [ ] Executing a transaction ......................................... 🟩🟨🟥
+- [ ] The DISCARD command ............................................. 🟩🟨⬜
+- [ ] Failures within transactions .................................... 🟩🟨🟥
+- [ ] Multiple transactions ........................................... 🟩🟨🟥
 
 ## Project Structure
 
@@ -95,11 +97,11 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/kushalsdesk/redis_with_go
 cd redis_with_go
 
 # Run the server
-go run main.go
+go run app/main.go
 
 # Test with redis-cli or telnet
 redis-cli -p 6379

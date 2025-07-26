@@ -21,9 +21,15 @@ func Dispatch(args []string, conn net.Conn) {
 	case "GET":
 		handleGet(args, conn)
 	case "LPUSH":
-		handleLpush(args, conn)
+		handleLPush(args, conn)
 	case "RPUSH":
 		handleRPush(args, conn)
+	case "LINDEX":
+		handleLIndex(args, conn)
+	case "LRANGE":
+		handleLRange(args, conn)
+	case "LLEN":
+		handleLLen(args, conn)
 
 	default:
 		conn.Write([]byte("-ERR unknown command\r\n"))

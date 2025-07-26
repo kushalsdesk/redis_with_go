@@ -7,7 +7,7 @@ import (
 	"github.com/kushalsdesk/redis_with_go/store"
 )
 
-func handleLpush(args []string, conn net.Conn) {
+func handleLPush(args []string, conn net.Conn) {
 	if len(args) < 3 {
 		conn.Write([]byte("-ERR wrong number of arguments for 'lpush' commmand\r\n"))
 		return

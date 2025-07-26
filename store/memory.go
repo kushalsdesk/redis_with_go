@@ -1,7 +1,6 @@
 package store
 
 import (
-	"fmt"
 	"sync"
 	"time"
 )
@@ -108,9 +107,9 @@ func ListPush(key string, elements []string, left bool) int {
 	return len(value.List)
 }
 
-func GetListLenght(key string) int {
-	dataMutex.Lock()
-	defer dataMutex.Unlock()
+func GetListLength(key string) int {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
 
 	value, exists := data[key]
 	if !exists {
@@ -118,7 +117,6 @@ func GetListLenght(key string) int {
 	}
 
 	if value.Type != LIST {
-		fmt.Println("-ERR unknown or wrong type")
 		return -1
 	}
 
@@ -129,4 +127,95 @@ func GetListLenght(key string) int {
 
 	return len(value.List)
 
+}
+
+// Get elements at specific index (both positive and negative indexes)
+
+func ListIndex(key string, index int) (string, bool) {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	value, exists := data[key]
+
+	if !exists {
+		return "", false
+	}
+
+	if value.Type != LIST {
+		return "", false
+	}
+
+	//check expiry
+	if value.Expiry != nil && time.Now().After(*value.Expiry) {
+		return "", false
+	}
+
+	listlen := len(value.List)
+	if listlen == 0 {
+		return "", false
+	}
+
+	// handle negative indexing
+	if index < 0 {
+		index = listlen + index
+	}
+
+	//check bounds
+	if index < 0 || index >= listlen {
+		return "", false
+	}
+
+	return value.List[index], true
+
+}
+
+// Get range of elements from list
+//
+
+func ListRange(key string, start, stop int) ([]string, bool) {
+
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	value, exists := data[key]
+	if !exists {
+		return []string{}, true
+	}
+
+	if value.Type != LIST {
+		return nil, false
+	}
+
+	//Check expiry
+	if value.Expiry != nil && time.Now().After(*value.Expiry) {
+		return []string{}, true
+	}
+
+	listlen := len(value.List)
+	if listlen == 0 {
+		return []string{}, true
+	}
+
+	// handle negative indexing
+	if start < 0 {
+		start = listlen + start
+	}
+	if stop < 0 {
+		stop = listlen + stop
+	}
+
+	// clamp to bounds
+	if start < 0 {
+		start = 0
+	}
+	if stop >= listlen {
+		stop = listlen - 1
+	}
+
+	// if start > stop , return empty
+	if start > stop {
+		return []string{}, true
+	}
+
+	return value.List[start : stop+1], true
 }
