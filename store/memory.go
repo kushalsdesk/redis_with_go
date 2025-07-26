@@ -219,3 +219,40 @@ func ListRange(key string, start, stop int) ([]string, bool) {
 
 	return value.List[start : stop+1], true
 }
+
+func ListPop(key string, left bool) (string, bool) {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	value, exists := data[key]
+	if !exists {
+		return "", false
+	}
+
+	if value.Type != LIST {
+		return "", false
+	}
+
+	if value.Expiry != nil && time.Now().After(*value.Expiry) {
+		delete(data, key)
+		return "", false
+	}
+
+	listLen := len(value.List)
+	if listLen == 0 {
+		return "", false
+	}
+
+	var element string
+	if left {
+		//LPOP: remove from front
+		element = value.List[0]
+		value.List = value.List[1:]
+	} else {
+		//RPOP: remove from back
+		element = value.List[listLen-1]
+		value.List = value.List[:listLen-1]
+	}
+
+	return element, true
+}
