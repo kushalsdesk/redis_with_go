@@ -220,39 +220,61 @@ func ListRange(key string, start, stop int) ([]string, bool) {
 	return value.List[start : stop+1], true
 }
 
+// Keeping the single pop function for backward compatibility
 func ListPop(key string, left bool) (string, bool) {
-	dataMutex.RLock()
-	defer dataMutex.RUnlock()
+	elements, ok := ListPopMultiple(key, 1, left)
+	if !ok || len(elements) == 0 {
+		return "", false
+	}
+	return elements[0], true
+}
+
+// Remove and return multiple elements from list
+
+func ListPopMultiple(key string, count int, left bool) ([]string, bool) {
+	dataMutex.Lock()
+	defer dataMutex.Unlock()
 
 	value, exists := data[key]
 	if !exists {
-		return "", false
+		return nil, false
 	}
 
 	if value.Type != LIST {
-		return "", false
+		return nil, false
 	}
 
 	if value.Expiry != nil && time.Now().After(*value.Expiry) {
 		delete(data, key)
-		return "", false
+		return nil, false
 	}
 
-	listLen := len(value.List)
-	if listLen == 0 {
-		return "", false
+	listlen := len(value.List)
+	if listlen == 0 {
+		return []string{}, true
 	}
 
-	var element string
+	if count > listlen {
+		count = listlen
+	}
+
+	var result []string
 	if left {
-		//LPOP: remove from front
-		element = value.List[0]
-		value.List = value.List[1:]
+		result = make([]string, count)
+		copy(result, value.List[:count])
+		value.List = value.List[count:]
 	} else {
-		//RPOP: remove from back
-		element = value.List[listLen-1]
-		value.List = value.List[:listLen-1]
+		result = make([]string, count)
+		startIndex := listlen - count
+		copy(result, value.List[startIndex:])
+		value.List = value.List[:startIndex]
+
+		for i := 0; i < len(result)/2; i++ {
+			j := len(result) - 1 - i
+			result[i], result[j] = result[j], result[i]
+		}
 	}
 
-	return element, true
+	return result, true
+
 }
