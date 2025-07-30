@@ -26,7 +26,7 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [x] Implement the SET & GET command .................................. 🟩🟨⬜
 - [x] Expiry ........................................................... 🟩🟨⬜
 
-### [Phase 2: Lists](./docs/phase2.md) - **IN PROGRESS**
+### [Phase 2: Lists](./docs/phase2.md) - **COMPLETED**
 
 - [x] Create a list ................................................... 🟩⬜⬜
 - [x] Append an element (RPUSH) ....................................... 🟩⬜⬜
@@ -35,10 +35,10 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [x] List elements (negative indexes) ................................ 🟩🟨⬜
 - [x] Prepend elements (LPUSH) ........................................ 🟩⬜⬜
 - [x] Query list length ............................................... 🟩⬜⬜
-- [ ] Remove an element ............................................... 🟩🟨⬜
-- [ ] Remove multiple elements ........................................ 🟩🟨⬜
-- [ ] Blocking retrieval .............................................. 🟩🟨🟥
-- [ ] Blocking retrieval with timeout ................................. 🟩🟨🟥
+- [x] Remove an element ............................................... 🟩🟨⬜
+- [x] Remove multiple elements ........................................ 🟩🟨⬜
+- [x] Blocking retrieval .............................................. 🟩🟨🟥
+- [x] Blocking retrieval with timeout ................................. 🟩🟨🟥
 
 ### [Phase 3: Streams](./docs/phase3.md) - **NOT STARTED**
 

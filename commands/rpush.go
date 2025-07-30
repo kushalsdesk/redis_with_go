@@ -19,7 +19,7 @@ func handleRPush(args []string, conn net.Conn) {
 	length := store.ListPush(key, elements, false)
 
 	if length == -1 {
-		conn.Write([]byte("WRONGTYPE Operation against a key holding the wrong kind of value\r\n"))
+		conn.Write([]byte("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n"))
 		return
 	}
 

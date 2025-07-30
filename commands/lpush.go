@@ -24,7 +24,7 @@ func handleLPush(args []string, conn net.Conn) {
 	}
 
 	//return a new length as integer
-	resp := []byte(fmt.Sprintf(":%d\r\n", length))
+	resp := fmt.Sprintf(":%d\r\n", length)
 	conn.Write([]byte(resp))
 
 }

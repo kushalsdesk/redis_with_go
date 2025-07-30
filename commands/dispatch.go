@@ -34,6 +34,10 @@ func Dispatch(args []string, conn net.Conn) {
 		handleLPop(args, conn)
 	case "RPOP":
 		handleRPop(args, conn)
+	case "BLPOP":
+		handleBLPop(args, conn)
+	case "BRPOP":
+		handleBRPop(args, conn)
 
 	default:
 		conn.Write([]byte("-ERR unknown command\r\n"))
