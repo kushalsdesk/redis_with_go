@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
@@ -10,12 +11,26 @@ type ValueType int
 const (
 	STRING ValueType = iota
 	LIST
+	STREAM
 )
+
+// stream entry structure
+type StreamEntry struct {
+	ID     string
+	Fields map[string]string
+}
+
+// stream data structure
+type Stream struct {
+	Entries []StreamEntry
+	LastID  string
+}
 
 type RedisValue struct {
 	Type   ValueType
 	String string
 	List   []string
+	Stream *Stream
 	Expiry *time.Time
 }
 
@@ -409,4 +424,72 @@ func NotifyBlockingClients(key string) {
 			UnregisterBlockingClient(client)
 		}
 	}
+}
+
+// getting the type of a key
+func GetKeyType(key string) string {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	value, exists := data[key]
+	if !exists {
+		return "none"
+	}
+
+	if value.Expiry != nil && time.Now().After(*value.Expiry) {
+		delete(data, key)
+		return "none"
+	}
+
+	switch value.Type {
+	case STRING:
+		return "string"
+	case LIST:
+		return "list"
+	case STREAM:
+		return "stream"
+	default:
+		return "none"
+	}
+}
+
+// stream creation function
+func StreamAdd(key, id string, fields map[string]string) (string, error) {
+	dataMutex.Lock()
+	defer dataMutex.Unlock()
+
+	value, exists := data[key]
+	if !exists {
+		//new stream
+		value = &RedisValue{
+			Type: STREAM,
+			Stream: &Stream{
+				Entries: make([]StreamEntry, 0),
+				LastID:  "",
+			},
+		}
+		data[key] = value
+	}
+	if value.Type != STREAM {
+		return "", fmt.Errorf("WRONGTYPE Operation against a key holding wrong kind of value")
+	}
+
+	if value.Expiry != nil && time.Now().After(*value.Expiry) {
+		//resetting expired stream
+		value.Stream = &Stream{
+			Entries: make([]StreamEntry, 0),
+			LastID:  "",
+		}
+		value.Expiry = nil
+	}
+
+	entry := StreamEntry{
+		ID:     id,
+		Fields: fields,
+	}
+	value.Stream.Entries = append(value.Stream.Entries, entry)
+	value.Stream.LastID = id
+
+	return id, nil
+
 }
