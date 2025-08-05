@@ -2,6 +2,8 @@ package store
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -24,6 +26,11 @@ type StreamEntry struct {
 type Stream struct {
 	Entries []StreamEntry
 	LastID  string
+}
+
+type StreamID struct {
+	Timestamp int64
+	Sequence  int64
 }
 
 type RedisValue struct {
@@ -483,13 +490,177 @@ func StreamAdd(key, id string, fields map[string]string) (string, error) {
 		value.Expiry = nil
 	}
 
+	var finalID string
+	var err error
+
+	switch {
+	case id == "*":
+		finalID = GenerateAutoID(value.Stream.LastID)
+
+	case strings.HasSuffix(id, "-*"):
+		timestampStr := strings.TrimSuffix(id, "-*")
+		timestamp, parseErr := strconv.ParseInt(timestampStr, 10, 64)
+		if parseErr != nil {
+			return "", fmt.Errorf("ERR Invalid stream ID specified as stream command argument")
+		}
+
+		if timestamp < 0 {
+			return "", fmt.Errorf("ERR The ID specified in XADD must be greater than 0-0")
+		}
+
+		sequence, seqErr := GenerateNextSequence(timestamp, value.Stream.LastID)
+		if seqErr != nil {
+			return "", seqErr
+		}
+
+		finalID = fmt.Sprintf("%d-%d", timestamp, sequence)
+
+	default:
+		err = ValidateStreamID(id, value.Stream.LastID)
+		if err != nil {
+			return "", err
+		}
+		finalID = id
+	}
+
 	entry := StreamEntry{
-		ID:     id,
+		ID:     finalID,
 		Fields: fields,
 	}
 	value.Stream.Entries = append(value.Stream.Entries, entry)
-	value.Stream.LastID = id
+	value.Stream.LastID = finalID
 
-	return id, nil
+	return finalID, nil
+
+}
+
+func ParseStreamID(idStr string) (*StreamID, error) {
+	if idStr == "" {
+		return nil, fmt.Errorf("ERR Invalid stream ID specified as stream command argument")
+	}
+
+	parts := strings.Split(idStr, "-")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("ERR Invalid stream ID specified as stream command argument")
+	}
+
+	timestamp, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("ERR Invalid stream ID specified as stream command argument")
+	}
+
+	sequence, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("ERR Invalid stream ID specified as stream command argument")
+	}
+
+	//negative checking
+	if timestamp < 0 {
+		return nil, fmt.Errorf("ERR the ID specified in XADD must be greater than 0-0")
+	}
+
+	if sequence < 0 {
+		return nil, fmt.Errorf("ERR Invalid stream ID specified as stream command argument")
+	}
+
+	return &StreamID{
+		Timestamp: timestamp,
+		Sequence:  sequence,
+	}, nil
+}
+
+// to convert StreamID back to string
+func (s *StreamID) String() string {
+	return fmt.Sprintf("%d-%d", s.Timestamp, s.Sequence)
+}
+
+func CompareStreamIDs(id1, id2 string) int {
+	parsed1, err1 := ParseStreamID(id1)
+	parsed2, err2 := ParseStreamID(id2)
+
+	if err1 != nil || err2 != nil {
+		return strings.Compare(id1, id2)
+	}
+
+	if parsed1.Timestamp < parsed2.Timestamp {
+		return -1
+	}
+
+	if parsed1.Timestamp > parsed2.Timestamp {
+		return 1
+	}
+
+	if parsed1.Sequence < parsed2.Sequence {
+		return -1
+	}
+
+	if parsed1.Sequence > parsed2.Sequence {
+		return 1
+	}
+	return 0
+}
+
+func ValidateStreamID(newID, lastID string) error {
+	parsed, err := ParseStreamID(newID)
+	if err != nil {
+		return err
+	}
+
+	if parsed.Timestamp == 0 && parsed.Sequence == 0 {
+		return fmt.Errorf("ERR The ID specified in XADD must be greater than 0-0")
+
+	}
+	if lastID == "" {
+		return nil
+	}
+
+	comparison := CompareStreamIDs(newID, lastID)
+	if comparison <= 0 {
+		return fmt.Errorf("ERR The ID specified in XADD is equal or smaller than the target stream top item")
+	}
+	return nil
+}
+
+func GenerateNextSequence(timestamp int64, lastID string) (int64, error) {
+	if lastID == "" {
+		return 0, nil
+	}
+
+	lastParsed, err := ParseStreamID(lastID)
+	if err != nil {
+		return 0, err
+	}
+
+	if timestamp > lastParsed.Timestamp {
+		return 0, nil
+	}
+
+	if timestamp == lastParsed.Timestamp {
+		return lastParsed.Sequence + 1, nil
+	}
+
+	return 0, fmt.Errorf("ERR The ID specified in XADD is equal or smaller than the target stream top item")
+}
+
+func GenerateAutoID(lastID string) string {
+	currentTime := time.Now().UnixMilli()
+
+	if lastID == "" {
+		return fmt.Sprintf("%d-0", currentTime)
+	}
+	lastParsed, err := ParseStreamID(lastID)
+	if err != nil {
+		return fmt.Sprintf("%d-0", currentTime)
+	}
+
+	if currentTime > lastParsed.Timestamp {
+		return fmt.Sprintf("%d-0", currentTime)
+	}
+
+	if currentTime == lastParsed.Timestamp {
+		return fmt.Sprintf("%d-%d", currentTime, lastParsed.Sequence+1)
+	}
+
+	return fmt.Sprintf("%d-0", lastParsed.Timestamp+1)
 
 }
