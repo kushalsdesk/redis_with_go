@@ -664,3 +664,66 @@ func GenerateAutoID(lastID string) string {
 	return fmt.Sprintf("%d-0", lastParsed.Timestamp+1)
 
 }
+
+// StreaRange returns entries within specified ID range
+func StreamRange(key, start, end string) ([]StreamEntry, error) {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	value, exists := data[key]
+	if !exists {
+		return []StreamEntry{}, nil
+	}
+
+	if value.Type != STREAM {
+		return nil, fmt.Errorf("WRONGTYPE Operation against a key holding the wrong kind of value")
+	}
+
+	if value.Expiry != nil && time.Now().After(*value.Expiry) {
+		return []StreamEntry{}, nil
+	}
+
+	stream := value.Stream
+	if len(stream.Entries) == 0 {
+		return []StreamEntry{}, nil
+	}
+
+	startID, endID := resolveRangeIDs(start, end, stream)
+
+	var result []StreamEntry
+	for _, entry := range stream.Entries {
+		entryID := entry.ID
+
+		if CompareStreamIDs(entryID, startID) >= 0 && CompareStreamIDs(entryID, endID) <= 0 {
+			result = append(result, entry)
+		}
+	}
+
+	return result, nil
+
+}
+
+func resolveRangeIDs(start, end string, stream *Stream) (string, string) {
+	startID := start
+	endID := end
+
+	//handling minimum possible ID/start of stream
+	if start == "-" {
+		if len(stream.Entries) > 0 {
+			startID = stream.Entries[0].ID
+		} else {
+			startID = "0-1" // minimum valid id
+		}
+	}
+
+	//handling maximum possible ID/end of stream
+	if end == "+" {
+		if len(stream.Entries) > 0 {
+			endID = stream.Entries[len(stream.Entries)-1].ID
+		} else {
+			endID = "9223372036854775807-9223372036854775807"
+		}
+	}
+
+	return startID, endID
+}
