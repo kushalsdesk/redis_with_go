@@ -727,3 +727,58 @@ func resolveRangeIDs(start, end string, stream *Stream) (string, string) {
 
 	return startID, endID
 }
+
+// StreamReadFrom returns entries after the given ID
+func StreamReadFrom(key, startID string, count int) ([]StreamEntry, error) {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	value, exists := data[key]
+	if !exists {
+		return []StreamEntry{}, nil
+	}
+
+	if value.Type != STREAM {
+		return nil, fmt.Errorf("WRONGTYPE Operation against a key holding the wrong kind of value")
+	}
+
+	if value.Expiry != nil && time.Now().After(*value.Expiry) {
+		return []StreamEntry{}, nil
+	}
+
+	stream := value.Stream
+	if len(stream.Entries) == 0 {
+		return []StreamEntry{}, nil
+	}
+
+	var result []StreamEntry
+	for _, entry := range stream.Entries {
+		if CompareStreamIDs(entry.ID, startID) > 0 {
+			result = append(result, entry)
+
+			if count > 0 && len(result) >= count {
+				break
+			}
+		}
+	}
+	return result, nil
+}
+
+func GetStreamLastID(key string) string {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	value, exists := data[key]
+	if !exists {
+		return ""
+	}
+
+	if value.Type != STREAM {
+		return ""
+	}
+
+	if value.Expiry != nil && time.Now().After(*value.Expiry) {
+		return ""
+	}
+	return value.Stream.LastID
+}

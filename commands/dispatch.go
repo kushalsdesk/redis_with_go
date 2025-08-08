@@ -44,6 +44,8 @@ func Dispatch(args []string, conn net.Conn) {
 		handleXAdd(args, conn)
 	case "XRANGE":
 		handleXRange(args, conn)
+	case "XREAD":
+		handleXRead(args, conn)
 	default:
 		conn.Write([]byte("-ERR unknown command\r\n"))
 	}
