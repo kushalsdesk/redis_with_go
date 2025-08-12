@@ -52,6 +52,8 @@ func Dispatch(args []string, conn net.Conn) {
 		handleMulti(args, conn)
 	case "EXEC":
 		handleExec(args, conn)
+	case "DISCARD":
+		handleDiscard(args, conn)
 	default:
 		conn.Write([]byte("-ERR unknown command\r\n"))
 	}

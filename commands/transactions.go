@@ -190,3 +190,21 @@ func handleExec(args []string, conn net.Conn) {
 
 	conn.Write([]byte(resp))
 }
+
+func handleDiscard(args []string, conn net.Conn) {
+	if len(args) != 1 {
+		conn.Write([]byte("-ERR wrong number of arguments for 'discard' command\r\n"))
+		return
+	}
+
+	state := getTransactionState(conn)
+
+	if !state.InTransaction {
+		conn.Write([]byte("-ERR DISCARD without MULTI\r\n"))
+		return
+	}
+
+	clearTransactionState(conn)
+
+	conn.Write([]byte("+OK\r\n"))
+}

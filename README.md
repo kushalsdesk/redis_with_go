@@ -59,14 +59,14 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [x] The INCR command (1/3) .......................................... 🟩⬜⬜
 - [x] The INCR command (2/3) .......................................... 🟩🟨⬜
 - [x] The INCR command (3/3) .......................................... 🟩🟨⬜
-- [ ] The MULTI command ............................................... 🟩🟨⬜
-- [ ] The EXEC command ................................................ 🟩🟨🟥
-- [ ] Empty transaction ............................................... 🟩🟨⬜
-- [ ] Queueing commands ............................................... 🟩🟨🟥
-- [ ] Executing a transaction ......................................... 🟩🟨🟥
-- [ ] The DISCARD command ............................................. 🟩🟨⬜
-- [ ] Failures within transactions .................................... 🟩🟨🟥
-- [ ] Multiple transactions ........................................... 🟩🟨🟥
+- [x] The MULTI command ............................................... 🟩🟨⬜
+- [x] The EXEC command ................................................ 🟩🟨🟥
+- [x] Empty transaction ............................................... 🟩🟨⬜
+- [x] Queueing commands ............................................... 🟩🟨🟥
+- [x] Executing a transaction ......................................... 🟩🟨🟥
+- [x] The DISCARD command ............................................. 🟩🟨⬜
+- [x] Failures within transactions .................................... 🟩🟨🟥
+- [x] Multiple transactions ........................................... 🟩🟨🟥
 
 ## Project Structure
 
@@ -79,13 +79,14 @@ redis_with_go/
 │   └── handler/
 │       └── handler.go             # RESP protocol parsing & connection handling
 ├── commands/
-│   ├── dispatch.go                # Command routing & distribution
 │   ├── basic.go                   # PING, ECHO commands
-│   ├── strings.go                 # SET, GET commands
-│   ├── lists.go                   # LPUSH, RPUSH, LRANGE, LLEN, etc.
+│   ├── dispatch.go                # Command routing & distribution
 │   ├── list_blocking.go           # BLPOP, BRPOP commands
-│   ├── streams.go                 # XADD, XRANGE commands
+│   ├── lists.go                   # LPUSH, RPUSH, LRANGE, LLEN, etc.
 │   ├── stream_blocking.go         # XREAD (blocking) commands
+│   ├── streams.go                 # XADD, XRANGE commands
+│   ├── strings.go                 # SET, GET commands
+    ├── transactions.go            # INCR, MULTI, EXEC commands
 │   └── utils.go                   # TYPE command & utilities
 ├── store/                         # Refactored storage layer
 │   ├── core.go                    # Core data structures & utilities
