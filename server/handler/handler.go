@@ -37,21 +37,30 @@ func HandleConnection(conn net.Conn) {
 				if err != nil {
 					return
 				}
-
 				content, err := reader.ReadString('\n')
 				if err != nil {
 					return
 				}
-
 				parts = append(parts, strings.TrimSpace(content))
 			}
 
-			commands.Dispatch(parts, conn)
+			// Check if we should queue this command instead of executing it
+			if len(parts) > 0 && commands.ShouldQueueCommand(conn, strings.ToUpper(parts[0])) {
+				commands.QueueCommand(conn, parts)
+			} else {
+				commands.Dispatch(parts, conn)
+			}
+
 		} else {
 			// Inline command support
 			parts := strings.Fields(line)
 			if len(parts) > 0 {
-				commands.Dispatch(parts, conn)
+				// Check if we should queue this command instead of executing it
+				if commands.ShouldQueueCommand(conn, strings.ToUpper(parts[0])) {
+					commands.QueueCommand(conn, parts)
+				} else {
+					commands.Dispatch(parts, conn)
+				}
 			}
 		}
 	}
