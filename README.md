@@ -40,7 +40,7 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [x] Blocking retrieval .............................................. 🟩🟨🟥
 - [x] Blocking retrieval with timeout ................................. 🟩🟨🟥
 
-### [Phase 3: Streams](./docs/phase3.md) - **IN PROGRESS**
+### [Phase 3: Streams](./docs/phase3.md) - **COMPLETED**
 
 - [x] The TYPE command ................................................ 🟩⬜⬜
 - [x] Create a stream ................................................. 🟩🟨⬜
@@ -50,11 +50,11 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [x] Query entries into stream ....................................... 🟩🟨⬜
 - [x] Query with - .................................................... 🟩🟨⬜
 - [x] Query with + .................................................... 🟩🟨⬜
-- [ ] Query single stream using XREAD ................................. 🟩🟨🟥
-- [ ] Query multiple streams using XREAD .............................. 🟩🟨🟥
-- [ ] Blocking reads .................................................. 🟩🟨🟥
-- [ ] Blocking reads without timeout .................................. 🟩🟨🟥
-- [ ] Blocking reads using $ .......................................... 🟩🟨🟥
+- [x] Query single stream using XREAD ................................. 🟩🟨🟥
+- [x] Query multiple streams using XREAD .............................. 🟩🟨🟥
+- [x] Blocking reads .................................................. 🟩🟨🟥
+- [x] Blocking reads without timeout .................................. 🟩🟨🟥
+- [x] Blocking reads using $ .......................................... 🟩🟨🟥
 
 ### [Phase 4: Transactions](./docs/phase4.md) - **NOT STARTED**
 

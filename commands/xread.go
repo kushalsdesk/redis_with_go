@@ -30,7 +30,8 @@ func handleXRead(args []string, conn net.Conn) {
 		switch strings.ToUpper(args[i]) {
 		case "COUNT":
 			if i+1 >= len(args) {
-				conn.Write([]byte("-ERR syntax error\r\n"))
+				// conn.Write([]byte("-ERR syntax error\r\n"))
+				fmt.Fprintf(conn, "-ERR syntax error\r\n")
 				return
 			}
 			var err error
@@ -77,7 +78,7 @@ func handleXRead(args []string, conn net.Conn) {
 
 	//basic blocking
 	if blockMillis >= 0 {
-		handleBlockingXRead(streamKeys, streamIDs, blockMillis, count, conn)
+		handleAdvancedBlockingXRead(streamKeys, streamIDs, blockMillis, count, conn)
 		return
 	}
 
@@ -86,83 +87,62 @@ func handleXRead(args []string, conn net.Conn) {
 }
 
 func handleNonBlockingXRead(streamKeys, streamIDs []string, count int, conn net.Conn) {
-	results := make([]StreamReadResult, 0)
+	results, _ := store.StreamReadFromImmediate(streamKeys, streamIDs, count)
+	response := formatXReadResponse(results)
+	fmt.Fprint(conn, response)
 
-	for i, key := range streamKeys {
-		startID := streamIDs[i]
-
-		if startID == "$" {
-			continue
-		}
-		entries, err := store.StreamReadFrom(key, startID, count)
-		if err != nil {
-			fmt.Fprintf(conn, "-ERR %s\r\n", err.Error())
-			return
-		}
-
-		if len(entries) > 0 {
-			results = append(results, StreamReadResult{
-				StreamKey: key,
-				Entries:   entries,
-			})
-		}
-	}
-	resp := formatXReadResponse(results)
-	conn.Write([]byte(resp))
 }
 
-func handleBlockingXRead(streamKeys, streamIDs []string, blockMillis int64, count int, conn net.Conn) {
-	//basic blocking mechanism
-	timeout := time.Duration(blockMillis) * time.Millisecond
+func handleAdvancedBlockingXRead(streamKeys, streamIDs []string, blockMillis int64, count int, conn net.Conn) {
+	// trying immediate read
+	results, hasData := store.StreamReadFromImmediate(streamKeys, streamIDs, count)
+	if hasData {
+		response := formatXReadResponse(results)
+		fmt.Fprint(conn, response)
+		return
+	}
+
+	var timeout time.Duration
 	if blockMillis == 0 {
 		timeout = 0
+	} else {
+		timeout = time.Duration(blockMillis) * time.Millisecond
 	}
-	startTime := time.Now()
 
-	for {
-		results := make([]StreamReadResult, 0)
+	client := store.RegisterStreamBlockingClient(streamKeys, streamIDs, count, timeout)
+	defer store.UnregisterStreamBlockingClient(client)
 
-		for i, key := range streamKeys {
-			startID := streamIDs[i]
+	// Waiting for data/timeout
+	if timeout > 0 {
+		select {
+		case result := <-client.Response:
+			if result.Success {
+				response := formatXReadResponse(result.Results)
+				fmt.Fprint(conn, response)
 
-			if startID == "$" {
-				lastID := store.GetStreamLastID(key)
-				if lastID != "" {
-					startID = lastID
-				}
+			} else {
+				fmt.Fprintf(conn, "*-1\r\n")
 			}
-
-			entries, err := store.StreamReadFrom(key, startID, count)
-			if err != nil {
-				fmt.Fprintf(conn, "-ERR %s\r\n", err.Error())
-				return
-			}
-			if len(entries) > 0 {
-				results = append(results, StreamReadResult{
-					StreamKey: key,
-					Entries:   entries,
-				})
-			}
+		case <-time.After(timeout):
+			fmt.Fprintf(conn, "*-1\r\n")
 		}
-
-		if len(results) > 0 {
-			response := formatXReadResponse(results)
-			conn.Write([]byte(response))
-			return
+	} else {
+		// blocking indefinitely
+		result := <-client.Response
+		if result.Success {
+			response := formatXReadResponse(result.Results)
+			fmt.Fprint(conn, response)
+		} else {
+			fmt.Fprint(conn, "*-1\r\n")
 		}
-		if timeout > 0 && time.Since(startTime) >= timeout {
-			conn.Write([]byte("*-1\r\n"))
-			return
-		}
-
-		time.Sleep(50 * time.Millisecond)
 	}
 }
 
-func formatXReadResponse(results []StreamReadResult) string {
+func formatXReadResponse(results []store.StreamReadResult) string {
 	if len(results) == 0 {
 		return "*-1\r\n"
 	}
+
 	response := fmt.Sprintf("*%d\r\n", len(results))
 
 	for _, result := range results {
@@ -180,6 +160,6 @@ func formatXReadResponse(results []StreamReadResult) string {
 			}
 		}
 	}
-	return response
 
+	return response
 }
