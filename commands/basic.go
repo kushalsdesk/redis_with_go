@@ -5,6 +5,11 @@ import (
 	"net"
 )
 
+func handlePing(conn net.Conn) {
+	conn.Write([]byte("+PONG\r\n"))
+
+}
+
 func handleEcho(args []string, conn net.Conn) {
 	if len(args) < 2 {
 		conn.Write([]byte("-ERR wrong number of arguments\r\n"))
