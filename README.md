@@ -54,11 +54,11 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [x] Blocking reads without timeout (BLOCK 0) ........................ 🟩🟨🟥
 - [x] Blocking reads using $ .......................................... 🟩🟨🟥
 
-### [Phase 4: Transactions](./docs/phase4.md) - **🚧 COMING NEXT**
+### [Phase 4: Transactions](./docs/phase4.md) - **IN PROGRESS**
 
-- [ ] The INCR command (1/3) .......................................... 🟩⬜⬜
-- [ ] The INCR command (2/3) .......................................... 🟩🟨⬜
-- [ ] The INCR command (3/3) .......................................... 🟩🟨⬜
+- [x] The INCR command (1/3) .......................................... 🟩⬜⬜
+- [x] The INCR command (2/3) .......................................... 🟩🟨⬜
+- [x] The INCR command (3/3) .......................................... 🟩🟨⬜
 - [ ] The MULTI command ............................................... 🟩🟨⬜
 - [ ] The EXEC command ................................................ 🟩🟨🟥
 - [ ] Empty transaction ............................................... 🟩🟨⬜
@@ -218,7 +218,7 @@ list
 2) "finally"
 ```
 
-###  **Phase 3: Streams & Advanced Blocking**
+### **Phase 3: Streams & Advanced Blocking**
 
 ```bash
 # Stream creation with auto-generated IDs
@@ -317,19 +317,23 @@ stream
 
 # Terminal 1 immediately receives data from stream2
 ```
+
 ## Performance Features
 
 ## 🚀 **Real-time Notifications**
+
 - **Immediate response**: Blocking commands return instantly when data arrives
 - **No polling**: Event-driven architecture using Go channels
 - **Concurrent safety**: Thread-safe operations with proper mutex usage
 
 ### 💪 **Concurrent Client Support**
+
 - **Multi-client**: Multiple redis-cli connections work simultaneously
 - **Independent blocking**: Each client can block on different keys/streams
 - **Resource cleanup**: Automatic client cleanup on disconnection
 
 ### ⚡ **Memory Efficiency**
+
 - **Modular storage**: Separated concerns across focused modules
 - **TTL support**: Automatic expiry and cleanup
 - **Type safety**: Strong typing for different Redis data structures

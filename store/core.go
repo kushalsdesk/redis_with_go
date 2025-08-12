@@ -43,6 +43,11 @@ var (
 	dataMutex sync.RWMutex
 )
 
+// var (
+// 	Data      = data
+// 	DataMutex = dataMutex
+// )
+
 func GetKeyType(key string) string {
 	dataMutex.RLock()
 	defer dataMutex.RUnlock()
