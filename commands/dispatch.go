@@ -48,12 +48,20 @@ func Dispatch(args []string, conn net.Conn) {
 		handleXRead(args, conn)
 	case "INCR":
 		handleIncr(args, conn)
+	case "INCRBY":
+		handleIncrBy(args, conn)
+	case "DECR":
+		handleDecr(args, conn)
+	case "DECRBY":
+		handleDecrBy(args, conn)
 	case "MULTI":
 		handleMulti(args, conn)
 	case "EXEC":
 		handleExec(args, conn)
 	case "DISCARD":
 		handleDiscard(args, conn)
+	case "UNDO":
+		handleUndo(args, conn)
 	default:
 		conn.Write([]byte("-ERR unknown command\r\n"))
 	}

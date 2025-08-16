@@ -2,8 +2,10 @@ package commands
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,7 +56,8 @@ func ShouldQueueCommand(conn net.Conn, command string) bool {
 	return state.InTransaction &&
 		command != "EXEC" &&
 		command != "DISCARD" &&
-		command != "MULTI"
+		command != "MULTI" &&
+		command != "UNDO"
 }
 
 func QueueCommand(conn net.Conn, args []string) {
@@ -74,38 +77,6 @@ func QueueCommand(conn net.Conn, args []string) {
 
 	conn.Write([]byte("+QUEUED\r\n"))
 
-}
-
-func handleIncr(args []string, conn net.Conn) {
-	if len(args) != 2 {
-		conn.Write([]byte("-ERR wrong number of arguments for 'incr' command\r\n"))
-		return
-	}
-
-	key := args[1]
-
-	currentVal, exists := store.Get(key)
-	var newValue int64
-
-	if !exists {
-		newValue = 1
-	} else {
-		parsedVal, err := strconv.ParseInt(currentVal, 10, 64)
-		if err != nil {
-			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
-			return
-		}
-
-		if parsedVal == 9223372036854775807 { // max int
-			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
-			return
-		}
-		newValue = parsedVal + 1
-	}
-	store.Set(key, strconv.FormatInt(newValue, 10), 0)
-
-	resp := fmt.Sprintf(":%d\r\n", newValue)
-	conn.Write([]byte(resp))
 }
 
 func handleMulti(args []string, conn net.Conn) {
@@ -207,4 +178,239 @@ func handleDiscard(args []string, conn net.Conn) {
 	clearTransactionState(conn)
 
 	conn.Write([]byte("+OK\r\n"))
+}
+
+func handleUndo(args []string, conn net.Conn) {
+	undoCount := 1
+	if len(args) == 2 {
+		count, err := strconv.Atoi(args[1])
+		if err != nil || count <= 0 {
+			conn.Write([]byte("-ERR invalid undo count\r\n"))
+			return
+		}
+		undoCount = count
+	} else if len(args) > 2 {
+		conn.Write([]byte("-ERR wrong number of arguments for 'undo' command\r\n"))
+		return
+	}
+
+	state := getTransactionState(conn)
+	if !state.InTransaction {
+		conn.Write([]byte("-ERR UNDO without MULTI\r\n"))
+		return
+	}
+
+	if len(state.QueuedCommands) == 0 {
+		conn.Write([]byte("*0\r\n"))
+		return
+	}
+
+	if undoCount > len(state.QueuedCommands) {
+		resp := fmt.Sprintf("-ERR cannot undo %d commands, only %d queued\r\n", undoCount, len(state.QueuedCommands))
+		conn.Write([]byte(resp))
+		return
+	}
+
+	// Get the commands to be removed
+	removedCommands := state.QueuedCommands[len(state.QueuedCommands)-undoCount:]
+
+	// Remove the commands from queue
+	transactionMutex.Lock()
+	state.QueuedCommands = state.QueuedCommands[:len(state.QueuedCommands)-undoCount]
+	transactionStates[conn] = state
+	transactionMutex.Unlock()
+
+	// Format: *N\r\n where N = number of elements in response
+
+	totalElements := undoCount + 2
+	resp := fmt.Sprintf("*%d\r\n", totalElements)
+
+	// Add summary as bulk string
+	summary := fmt.Sprintf("Removed %d commands:", undoCount)
+	resp += fmt.Sprintf("$%d\r\n%s\r\n", len(summary), summary)
+
+	// Add each removed command as bulk string
+	for _, cmd := range removedCommands {
+		cmdStr := strings.Join(cmd, " ")
+		resp += fmt.Sprintf("$%d\r\n%s\r\n", len(cmdStr), cmdStr)
+	}
+
+	// Add remaining count info as bulk string
+	remainingInfo := fmt.Sprintf("%d commands remaining in queue", len(state.QueuedCommands))
+	resp += fmt.Sprintf("$%d\r\n%s\r\n", len(remainingInfo), remainingInfo)
+
+	conn.Write([]byte(resp))
+}
+
+func handleIncr(args []string, conn net.Conn) {
+	if len(args) != 2 {
+		conn.Write([]byte("-ERR wrong number of arguments for 'incr' command\r\n"))
+		return
+	}
+
+	key := args[1]
+
+	currentVal, exists := store.Get(key)
+	var newValue int64
+
+	if !exists {
+		newValue = 1
+	} else {
+		parsedVal, err := strconv.ParseInt(currentVal, 10, 64)
+		if err != nil {
+			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
+			return
+		}
+
+		if parsedVal == math.MaxInt64 {
+			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
+			return
+		}
+		newValue = parsedVal + 1
+	}
+	store.Set(key, strconv.FormatInt(newValue, 10), 0)
+
+	resp := fmt.Sprintf(":%d\r\n", newValue)
+	conn.Write([]byte(resp))
+}
+
+// DECR command - decrement by 1
+func handleDecr(args []string, conn net.Conn) {
+	if len(args) != 2 {
+		conn.Write([]byte("-ERR wrong number of arguments for 'decr' command\r\n"))
+		return
+	}
+
+	key := args[1]
+	currentVal, exists := store.Get(key)
+
+	var newValue int64
+
+	if !exists {
+		newValue = -1 // Non-existent key becomes -1 (opposite of INCR)
+	} else {
+		parsedVal, err := strconv.ParseInt(currentVal, 10, 64)
+		if err != nil {
+			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
+			return
+		}
+
+		// Check for underflow
+		if parsedVal == math.MinInt64 {
+			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
+			return
+		}
+
+		newValue = parsedVal - 1
+	}
+
+	store.Set(key, strconv.FormatInt(newValue, 10), 0)
+
+	resp := fmt.Sprintf(":%d\r\n", newValue)
+	conn.Write([]byte(resp))
+}
+
+// INCRBY command - increment by specified amount
+func handleIncrBy(args []string, conn net.Conn) {
+	if len(args) == 2 {
+		handleIncr(args, conn)
+		return
+	}
+
+	if len(args) != 3 {
+		conn.Write([]byte("-ERR wrong number of arguments for 'incrby' command\r\n"))
+		return
+	}
+
+	key := args[1]
+	amount, err := strconv.ParseInt(args[2], 10, 64)
+	if err != nil {
+		conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
+		return
+	}
+
+	if amount == 0 {
+		conn.Write([]byte("$-1(Use 'INCR' command instead)\r\n"))
+		return
+	}
+
+	if amount < 0 {
+		conn.Write([]byte("-ERR increment amount must be positive\r\n"))
+		return
+	}
+
+	currentVal, exists := store.Get(key)
+	var newValue int64
+
+	if !exists {
+		newValue = amount
+	} else {
+		parsedVal, err := strconv.ParseInt(currentVal, 10, 64)
+		if err != nil {
+			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
+			return
+		}
+
+		// Check for overflow
+		if parsedVal > 0 && amount > math.MaxInt64-parsedVal {
+			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
+			return
+		}
+
+		newValue = parsedVal + amount
+	}
+
+	store.Set(key, strconv.FormatInt(newValue, 10), 0)
+
+	resp := fmt.Sprintf(":%d\r\n", newValue)
+	conn.Write([]byte(resp))
+}
+
+// DECRBY command - decrement by specified amount (supports positive and negative)
+func handleDecrBy(args []string, conn net.Conn) {
+	if len(args) == 2 {
+		handleDecr(args, conn)
+		return
+	}
+
+	if len(args) != 3 {
+		conn.Write([]byte("-ERR wrong number of arguments for 'decrby' command\r\n"))
+		return
+	}
+
+	key := args[1]
+	amount, err := strconv.ParseInt(args[2], 10, 64)
+	if err != nil {
+		conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
+		return
+	}
+
+	currentVal, exists := store.Get(key)
+	var newValue int64
+
+	if !exists {
+		newValue = -amount
+	} else {
+		parsedVal, err := strconv.ParseInt(currentVal, 10, 64)
+		if err != nil {
+			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
+			return
+		}
+
+		if amount > 0 && parsedVal < math.MinInt64+amount {
+			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
+			return
+		}
+		if amount < 0 && parsedVal > 9223372036854775807+amount {
+			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
+			return
+		}
+
+		newValue = parsedVal - amount
+	}
+
+	store.Set(key, strconv.FormatInt(newValue, 10), 0)
+
+	resp := fmt.Sprintf(":%d\r\n", newValue)
+	conn.Write([]byte(resp))
 }
