@@ -13,7 +13,6 @@ func ListenAndServe(addr string) {
 		fmt.Println("Failed to bind to ", addr)
 		return
 	}
-	fmt.Println("Listening on ", addr)
 
 	for {
 		conn, err := l.Accept()

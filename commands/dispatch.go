@@ -16,6 +16,8 @@ func Dispatch(args []string, conn net.Conn) {
 		handlePing(conn)
 	case "ECHO":
 		handleEcho(args, conn)
+	case "INFO":
+		handleInfo(args, conn)
 	case "SET":
 		handleSet(args, conn)
 	case "GET":

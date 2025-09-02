@@ -1,8 +1,32 @@
 package main
 
-import "github.com/kushalsdesk/redis_with_go/server"
+import (
+	"flag"
+	"fmt"
+	"os"
+
+	"github.com/kushalsdesk/redis_with_go/server"
+)
 
 func main() {
 
-	server.ListenAndServe("0.0.0.0:6379")
+	port := flag.String("port", "6379", "Port to listen on")
+	replicaof := flag.String("replicaof", "", "Master host and port")
+
+	flag.Parse()
+
+	if *port == "" {
+		fmt.Println("Port cannot be empty")
+		os.Exit(1)
+	}
+
+	addr := fmt.Sprintf("0.0.0.0:%s", *port)
+
+	if *replicaof != "" {
+		fmt.Printf("Starting Redis server as replica of %s on %s ", *replicaof, addr)
+	} else {
+		fmt.Printf("Starting Redis server as master on %s", addr)
+	}
+
+	server.ListenAndServe(addr)
 }
