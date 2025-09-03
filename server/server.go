@@ -8,6 +8,7 @@ import (
 )
 
 func ListenAndServe(addr string) {
+
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		fmt.Println("Failed to bind to ", addr)

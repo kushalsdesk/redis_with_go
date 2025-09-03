@@ -64,6 +64,10 @@ func Dispatch(args []string, conn net.Conn) {
 		handleDiscard(args, conn)
 	case "UNDO":
 		handleUndo(args, conn)
+	case "PSYNC":
+		handlePsync(args, conn)
+	case "REPLCONF":
+		handleReplconf(args, conn)
 	default:
 		conn.Write([]byte("-ERR unknown command\r\n"))
 	}
