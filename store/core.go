@@ -3,6 +3,8 @@ package store
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"net"
 	"sync"
 	"time"
 )
@@ -48,6 +50,13 @@ type ReplicationState struct {
 	MasterReplOffset int64
 	ConnectedSlaves  int
 	Replicas         []string
+	ReplicaConns     map[string]*ReplicationConnection
+}
+
+type ReplicationConnection struct {
+	Address    string
+	Connection net.Conn
+	Connected  bool
 }
 
 var (
@@ -61,7 +70,9 @@ var (
 		MasterReplOffset: 0,
 		ConnectedSlaves:  0,
 		Replicas:         make([]string, 0),
+		ReplicaConns:     make(map[string]*ReplicationConnection),
 	}
+
 	replicationMutex sync.RWMutex
 )
 
@@ -69,6 +80,61 @@ func generateReplID() string {
 	bytes := make([]byte, 20)
 	rand.Read(bytes)
 	return hex.EncodeToString(bytes)
+}
+
+func AddReplicaWithConnection(conn net.Conn) {
+	replicationMutex.Lock()
+	defer replicationMutex.Unlock()
+
+	address := conn.RemoteAddr().String()
+
+	replicationState.Replicas = append(replicationState.Replicas, address)
+
+	replicationState.ReplicaConns[address] = &ReplicationConnection{
+		Address:    address,
+		Connection: conn,
+		Connected:  true,
+	}
+	replicationState.ConnectedSlaves = len(replicationState.ReplicaConns)
+	fmt.Printf("Replica connceted and tracked: %s\n", address)
+
+}
+
+func RemoveReplicaByConnection(conn net.Conn) {
+	replicationMutex.Lock()
+	defer replicationMutex.Unlock()
+
+	address := conn.RemoteAddr().String()
+
+	for index, replica := range replicationState.Replicas {
+		if replica == address {
+			replicationState.Replicas = append(replicationState.Replicas[:index], replicationState.Replicas[index+1:]...)
+			break
+		}
+	}
+
+	if replica, exists := replicationState.ReplicaConns[address]; exists {
+		replica.Connected = false
+		delete(replicationState.ReplicaConns, address)
+	}
+
+	replicationState.ConnectedSlaves = len(replicationState.ReplicaConns)
+	fmt.Printf("Replica disconnected: %s\n", address)
+}
+
+func GetReplicaConnections() []*ReplicationConnection {
+
+	replicationMutex.RLock()
+	defer replicationMutex.RUnlock()
+
+	connections := make([]*ReplicationConnection, 0, len(replicationState.ReplicaConns))
+	for _, replica := range replicationState.ReplicaConns {
+		if replica.Connected {
+			connections = append(connections, replica)
+		}
+	}
+
+	return connections
 }
 
 func GetReplicationState() *ReplicationState {

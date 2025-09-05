@@ -82,8 +82,8 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [x] Recieve handshake(1/2) .......................................... 🟩
 - [x] Receive handshake(2/2)............................................ 🟩
 - [x] Empty RDB transfer............................................... 🟩
-- [ ] Single-replica propagation ...................................... 🟨
-- [ ] Multi-replica propagation ....................................... 🟥
+- [x] Single-replica propagation ...................................... 🟨
+- [x] Multi-replica propagation ....................................... 🟥
 - [ ] Command Processing .............................................. 🟥
 - [ ] ACKs with no commands ........................................... 🟩
 - [ ] ACKs with commands .............................................. 🟨

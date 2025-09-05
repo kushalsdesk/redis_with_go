@@ -7,10 +7,16 @@ import (
 	"strings"
 
 	"github.com/kushalsdesk/redis_with_go/commands"
+	"github.com/kushalsdesk/redis_with_go/store"
 )
 
 func HandleConnection(conn net.Conn) {
-	defer conn.Close()
+	defer func() {
+		// Clean up replica connection on disconnect
+		store.RemoveReplicaByConnection(conn)
+		conn.Close()
+	}()
+
 	reader := bufio.NewReader(conn)
 
 	for {
