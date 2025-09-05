@@ -70,18 +70,18 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [x] Multiple transactions ........................................... 🟥
 - [x] Undo Single/Multiple transactions ............................... 🟨
 
-### [Phase 5: Replication](./docs/phase5.md) - **REMAINING**
+### [Phase 5: Replication](./docs/phase5.md) - **IN PROGRESS**
 
-- [ ] Configure listening port ........................................ 🟩
-- [ ] The INFO command on a replica ................................... 🟩
-- [ ] The INFO command ................................................ 🟨
-- [ ] Initial replication ID and offset ............................... 🟩
-- [ ] Send handshake(1/3) ............................................. 🟩
-- [ ] Send handshake(2/3) ............................................. 🟩
-- [ ] Send handshake(2/3) ............................................. 🟨
-- [ ] Recieve handshake(1/2) .......................................... 🟩
-- [ ] Receive handshake(2/2............................................ 🟩
-- [ ] Empty RDB transfer............................................... 🟩
+- [x] Configure listening port ........................................ 🟩
+- [x] The INFO command on a replica ................................... 🟩
+- [x] The INFO command ................................................ 🟨
+- [x] Initial replication ID and offset ............................... 🟩
+- [x] Send handshake(1/3) ............................................. 🟩
+- [x] Send handshake(2/3) ............................................. 🟩
+- [x] Send handshake(3/3) ............................................. 🟨
+- [x] Recieve handshake(1/2) .......................................... 🟩
+- [x] Receive handshake(2/2)............................................ 🟩
+- [x] Empty RDB transfer............................................... 🟩
 - [ ] Single-replica propagation ...................................... 🟨
 - [ ] Multi-replica propagation ....................................... 🟥
 - [ ] Command Processing .............................................. 🟥
