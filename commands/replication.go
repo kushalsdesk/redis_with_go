@@ -32,9 +32,11 @@ func handlePsync(args []string, conn net.Conn) {
 		replState.MasterReplOffset)
 	conn.Write([]byte(response))
 
-	replicaAddr := conn.RemoteAddr().String()
-	store.AddReplica(replicaAddr)
-	fmt.Printf("Replica connected: %s\n", replicaAddr)
+	// replicaAddr := conn.RemoteAddr().String()
+	// store.AddReplica(replicaAddr)
+	// fmt.Printf("Replica connected: %s\n", replicaAddr)
+
+	store.AddReplicaWithConnection(conn)
 
 	sendEmptyRDB(conn)
 }
