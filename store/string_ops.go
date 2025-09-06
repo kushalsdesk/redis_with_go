@@ -42,3 +42,15 @@ func Get(key string) (string, bool) {
 
 	return value.String, true
 }
+
+func Delete(key string) bool {
+	dataMutex.Lock()
+	defer dataMutex.Unlock()
+
+	_, exists := data[key]
+	if exists {
+		delete(data, key)
+		return true
+	}
+	return false
+}
