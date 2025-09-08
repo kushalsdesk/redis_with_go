@@ -7,7 +7,6 @@ import (
 	"github.com/kushalsdesk/redis_with_go/store"
 )
 
-// Define which commands are write commands that should be propagated
 var writeCommands = map[string]bool{
 	"SET":    true,
 	"DEL":    true,
@@ -32,7 +31,6 @@ func EncodeRESPArray(args []string) []byte {
 	}
 
 	var result strings.Builder
-
 	result.WriteString(fmt.Sprintf("*%d\r\n", len(args)))
 
 	for _, arg := range args {
@@ -43,11 +41,7 @@ func EncodeRESPArray(args []string) []byte {
 }
 
 func PropagateCommand(args []string) {
-	if len(args) == 0 {
-		return
-	}
-
-	if !IsWriteCommand(args[0]) {
+	if len(args) == 0 || !IsWriteCommand(args[0]) {
 		return
 	}
 
@@ -62,19 +56,17 @@ func PropagateCommand(args []string) {
 	}
 
 	respCommand := EncodeRESPArray(args)
-
-	fmt.Printf("Propagating command to %d replicas: %v\n", len(replicas), args)
+	fmt.Printf("📡 Propagating to %d replicas: %v\n", len(replicas), args)
 
 	for _, replica := range replicas {
 		go func(r *store.ReplicationConnection) {
 			_, err := r.Connection.Write(respCommand)
 			if err != nil {
-				fmt.Printf("Failed to propagate command to replica %s: %v\n",
-					r.Address, err)
+				fmt.Printf("❌ Propagation failed to %s: %v\n", r.Address, err)
 				store.RemoveReplicaByConnection(r.Connection)
 			}
 		}(replica)
 	}
 
-	fmt.Printf("Command propagated successfully\n")
+	fmt.Printf("✅ Command propagated successfully\n")
 }

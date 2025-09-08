@@ -17,13 +17,11 @@ const (
 	STREAM
 )
 
-// stream entry structure
 type StreamEntry struct {
 	ID     string
 	Fields map[string]string
 }
 
-// stream data structure
 type Stream struct {
 	Entries []StreamEntry
 	LastID  string
@@ -60,10 +58,8 @@ type ReplicationConnection struct {
 }
 
 var (
-	data      = make(map[string]*RedisValue)
-	dataMutex sync.RWMutex
-
-	// Replication state
+	data             = make(map[string]*RedisValue)
+	dataMutex        sync.RWMutex
 	replicationState = &ReplicationState{
 		Role:             "master",
 		MasterReplID:     generateReplID(),
@@ -72,7 +68,6 @@ var (
 		Replicas:         make([]string, 0),
 		ReplicaConns:     make(map[string]*ReplicationConnection),
 	}
-
 	replicationMutex sync.RWMutex
 )
 
@@ -87,17 +82,14 @@ func AddReplicaWithConnection(conn net.Conn) {
 	defer replicationMutex.Unlock()
 
 	address := conn.RemoteAddr().String()
-
 	replicationState.Replicas = append(replicationState.Replicas, address)
-
 	replicationState.ReplicaConns[address] = &ReplicationConnection{
 		Address:    address,
 		Connection: conn,
 		Connected:  true,
 	}
 	replicationState.ConnectedSlaves = len(replicationState.ReplicaConns)
-	fmt.Printf("Replica connceted and tracked: %s\n", address)
-
+	fmt.Printf("🔗 Replica connected: %s\n", address)
 }
 
 func RemoveReplicaByConnection(conn net.Conn) {
@@ -106,24 +98,25 @@ func RemoveReplicaByConnection(conn net.Conn) {
 
 	address := conn.RemoteAddr().String()
 
-	for index, replica := range replicationState.Replicas {
+	// Remove from replica list
+	for i, replica := range replicationState.Replicas {
 		if replica == address {
-			replicationState.Replicas = append(replicationState.Replicas[:index], replicationState.Replicas[index+1:]...)
+			replicationState.Replicas = append(replicationState.Replicas[:i], replicationState.Replicas[i+1:]...)
 			break
 		}
 	}
 
+	// Remove from connection map
 	if replica, exists := replicationState.ReplicaConns[address]; exists {
 		replica.Connected = false
 		delete(replicationState.ReplicaConns, address)
 	}
 
 	replicationState.ConnectedSlaves = len(replicationState.ReplicaConns)
-	fmt.Printf("Replica disconnected: %s\n", address)
+	fmt.Printf("❌ Replica disconnected: %s\n", address)
 }
 
 func GetReplicaConnections() []*ReplicationConnection {
-
 	replicationMutex.RLock()
 	defer replicationMutex.RUnlock()
 
@@ -133,7 +126,6 @@ func GetReplicaConnections() []*ReplicationConnection {
 			connections = append(connections, replica)
 		}
 	}
-
 	return connections
 }
 
@@ -141,7 +133,6 @@ func GetReplicationState() *ReplicationState {
 	replicationMutex.RLock()
 	defer replicationMutex.RUnlock()
 
-	// Returning a copy to avoid conditions
 	return &ReplicationState{
 		Role:             replicationState.Role,
 		MasterHost:       replicationState.MasterHost,
@@ -162,7 +153,6 @@ func SetReplicationRole(role, masterHost, masterPort string) {
 	replicationState.MasterPort = masterPort
 
 	if role == "slave" {
-		// Reset master- specific state when becoming a replica
 		replicationState.ConnectedSlaves = 0
 		replicationState.Replicas = make([]string, 0)
 	}
@@ -171,21 +161,18 @@ func SetReplicationRole(role, masterHost, masterPort string) {
 func IncrementReplOffset(increment int64) {
 	replicationMutex.Lock()
 	defer replicationMutex.Unlock()
-
 	replicationState.MasterReplOffset += increment
 }
 
 func GetReplOffset() int64 {
 	replicationMutex.RLock()
 	defer replicationMutex.RUnlock()
-
 	return replicationState.MasterReplOffset
 }
 
 func AddReplica(replica string) {
 	replicationMutex.Lock()
 	defer replicationMutex.Unlock()
-
 	replicationState.Replicas = append(replicationState.Replicas, replica)
 	replicationState.ConnectedSlaves = len(replicationState.Replicas)
 }
@@ -194,15 +181,13 @@ func RemoveReplica(replica string) {
 	replicationMutex.Lock()
 	defer replicationMutex.Unlock()
 
-	for index, rep := range replicationState.Replicas {
+	for i, rep := range replicationState.Replicas {
 		if rep == replica {
-			replicationState.Replicas = append(replicationState.Replicas[:index], replicationState.Replicas[index+1:]...)
+			replicationState.Replicas = append(replicationState.Replicas[:i], replicationState.Replicas[i+1:]...)
 			break
 		}
 	}
-
 	replicationState.ConnectedSlaves = len(replicationState.Replicas)
-
 }
 
 func GetKeyType(key string) string {
@@ -214,8 +199,7 @@ func GetKeyType(key string) string {
 		return "none"
 	}
 
-	if value.Expiry != nil && time.Now().After(*value.Expiry) {
-		delete(data, key)
+	if isExpired(value, key) {
 		return "none"
 	}
 
@@ -230,6 +214,7 @@ func GetKeyType(key string) string {
 		return "none"
 	}
 }
+
 func isExpired(value *RedisValue, key string) bool {
 	if value.Expiry != nil && time.Now().After(*value.Expiry) {
 		delete(data, key)

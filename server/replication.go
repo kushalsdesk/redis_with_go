@@ -18,9 +18,7 @@ func StartReplicationClient(serverPort string) {
 		return
 	}
 
-	fmt.Printf("Starting replication handshake with master %s:%s\n",
-		replState.MasterHost, replState.MasterPort)
-
+	fmt.Printf("🚀 Starting replication with master %s:%s\n", replState.MasterHost, replState.MasterPort)
 	time.Sleep(100 * time.Millisecond)
 	go performReplicationHandshake(replState.MasterHost, replState.MasterPort, serverPort)
 }
@@ -29,215 +27,220 @@ func performReplicationHandshake(masterHost, masterPort, serverPort string) {
 	masterAddr := fmt.Sprintf("%s:%s", masterHost, masterPort)
 	conn, err := net.Dial("tcp", masterAddr)
 	if err != nil {
-		fmt.Printf("Failed to connect to master %s: %v\n", masterAddr, err)
+		fmt.Printf("❌ Failed to connect to master %s: %v\n", masterAddr, err)
 		return
 	}
-	// CRITICAL FIX: Remove defer conn.Close() to keep connection alive!
 
-	fmt.Printf("Connected to master %s\n", masterAddr)
+	fmt.Printf("🔗 Connected to master %s\n", masterAddr)
 
-	// Perform handshake
-	if !sendCommand(conn, "*1\r\n$4\r\nPING\r\n") {
-		fmt.Println("Failed to send PING to master")
+	if !performHandshakeSteps(conn, serverPort) {
 		conn.Close()
 		return
 	}
-	if !expectResponse(conn, "+PONG") {
-		fmt.Println("Did not receive PONG from master")
-		conn.Close()
-		return
-	}
-	fmt.Println("✓ PING successful")
 
+	fmt.Printf("🎉 Replication handshake completed!\n")
+	fmt.Printf("📡 Listening for propagated commands...\n")
+
+	reader := bufio.NewReader(conn)
+	listenForPropagatedCommands(conn, reader)
+}
+
+func performHandshakeSteps(conn net.Conn, serverPort string) bool {
+	// Step 1: PING
+	if !sendCommand(conn, "*1\r\n$4\r\nPING\r\n") ||
+		!expectResponse(conn, "+PONG") {
+		fmt.Printf("❌ PING handshake failed\n")
+		return false
+	}
+	fmt.Printf("✅ PING successful\n")
+
+	// Step 2: REPLCONF listening-port
 	replconfCmd := fmt.Sprintf("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$%d\r\n%s\r\n",
 		len(serverPort), serverPort)
-	if !sendCommand(conn, replconfCmd) {
-		fmt.Println("Failed to send REPLCONF listening-port to master")
-		conn.Close()
-		return
+	if !sendCommand(conn, replconfCmd) ||
+		!expectResponse(conn, "+OK") {
+		fmt.Printf("❌ REPLCONF listening-port failed\n")
+		return false
 	}
-	if !expectResponse(conn, "+OK") {
-		fmt.Println("Did not receive OK for REPLCONF listening-port")
-		conn.Close()
-		return
-	}
-	fmt.Println("✓ REPLCONF listening-port successful")
+	fmt.Printf("✅ REPLCONF listening-port successful\n")
 
+	// Step 3: REPLCONF capa
 	capaCmd := "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n"
-	if !sendCommand(conn, capaCmd) {
-		fmt.Println("Failed to send REPLCONF capa to master")
-		conn.Close()
-		return
+	if !sendCommand(conn, capaCmd) ||
+		!expectResponse(conn, "+OK") {
+		fmt.Printf("❌ REPLCONF capa failed\n")
+		return false
 	}
-	if !expectResponse(conn, "+OK") {
-		fmt.Println("Did not receive OK for REPLCONF capa")
-		conn.Close()
-		return
-	}
-	fmt.Println("✓ REPLCONF capa successful")
+	fmt.Printf("✅ REPLCONF capa successful\n")
 
+	// Step 4: PSYNC
 	psyncCmd := "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n"
 	if !sendCommand(conn, psyncCmd) {
-		fmt.Println("Failed to send PSYNC to master")
-		conn.Close()
-		return
+		fmt.Printf("❌ PSYNC send failed\n")
+		return false
 	}
 
 	reader := bufio.NewReader(conn)
 	response, err := reader.ReadString('\n')
 	if err != nil {
-		fmt.Printf("Failed to read PSYNC response: %v\n", err)
-		conn.Close()
-		return
+		fmt.Printf("❌ PSYNC response read failed: %v\n", err)
+		return false
 	}
+
 	response = strings.TrimSpace(response)
-
 	if !strings.HasPrefix(response, "+FULLRESYNC") {
-		fmt.Printf("Unexpected PSYNC response: %s\n", response)
-		conn.Close()
-		return
+		fmt.Printf("❌ Unexpected PSYNC response: %s\n", response)
+		return false
 	}
-
-	fmt.Printf("✓ PSYNC successful: %s\n", response)
+	fmt.Printf("✅ PSYNC successful: %s\n", response)
 
 	if !receiveRDB(reader) {
-		fmt.Println("Failed to receive RDB file")
-		conn.Close()
-		return
+		fmt.Printf("❌ RDB receive failed\n")
+		return false
 	}
 
-	fmt.Println("🎉 Replication handshake completed successfully!")
-
-	// NEW: Keep connection alive and listen for propagated commands
-	fmt.Println("📡 Starting to listen for propagated commands...")
-	listenForPropagatedCommands(conn, reader)
+	return true
 }
 
-// NEW FUNCTION: Listen for commands from master
 func listenForPropagatedCommands(conn net.Conn, reader *bufio.Reader) {
 	defer conn.Close()
 
 	for {
-		// Read command from master
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			fmt.Printf("Connection to master lost: %v\n", err)
+			fmt.Printf("📡 Connection to master lost: %v\n", err)
 			return
 		}
 
 		line = strings.TrimSpace(line)
 
 		if strings.HasPrefix(line, "*") {
-			// Parse RESP Array from master
-			numArgsStr := strings.TrimPrefix(line, "*")
-			numArgs, err := strconv.Atoi(numArgsStr)
-			if err != nil {
-				fmt.Printf("Invalid RESP array from master: %s\n", line)
+			if !processRESPArray(reader, line) {
 				continue
-			}
-
-			var parts []string
-			for i := 0; i < numArgs; i++ {
-				// Read bulk string header: $<length>
-				_, err := reader.ReadString('\n')
-				if err != nil {
-					fmt.Printf("Failed to read bulk string header: %v\n", err)
-					return
-				}
-				// Read actual content
-				content, err := reader.ReadString('\n')
-				if err != nil {
-					fmt.Printf("Failed to read bulk string content: %v\n", err)
-					return
-				}
-				parts = append(parts, strings.TrimSpace(content))
-			}
-
-			if len(parts) > 0 {
-				fmt.Printf("📥 Received propagated command: %v\n", parts)
-				// Process command locally without sending response
-				processReplicatedCommand(parts)
 			}
 		}
 	}
 }
 
-// NEW FUNCTION: Process commands received from master (no response sent)
+func processRESPArray(reader *bufio.Reader, line string) bool {
+	numArgsStr := strings.TrimPrefix(line, "*")
+	numArgs, err := strconv.Atoi(numArgsStr)
+	if err != nil {
+		fmt.Printf("❌ Invalid RESP array: %s\n", line)
+		return false
+	}
+
+	var parts []string
+	for i := 0; i < numArgs; i++ {
+		// Read bulk string header
+		_, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("❌ Failed to read bulk string header: %v\n", err)
+			return false
+		}
+
+		// Read content
+		content, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("❌ Failed to read bulk string content: %v\n", err)
+			return false
+		}
+		parts = append(parts, strings.TrimSpace(content))
+	}
+
+	if len(parts) > 0 {
+		fmt.Printf("📥 Received: %v\n", parts)
+		processReplicatedCommand(parts)
+	}
+	return true
+}
+
 func processReplicatedCommand(args []string) {
 	if len(args) == 0 {
 		return
 	}
 
-	fmt.Printf("Processing replicated command: %v\n", args)
-
-	// Process command silently (no response to master)
-	switch strings.ToUpper(args[0]) {
+	command := strings.ToUpper(args[0])
+	switch command {
 	case "SET":
 		if len(args) >= 3 {
-			key := args[1]
-			value := args[2]
-			store.Set(key, value, 0) // No TTL for simplicity
-			fmt.Printf("✓ Replicated SET %s = %s\n", key, value)
+			key, value := args[1], args[2]
+			store.Set(key, value, 0)
+			fmt.Printf("✅ Replicated SET %s = %s\n", key, value)
 		}
 	case "DEL":
 		if len(args) >= 2 {
 			key := args[1]
 			store.Delete(key)
-			fmt.Printf("✓ Replicated DEL %s\n", key)
+			fmt.Printf("✅ Replicated DEL %s\n", key)
 		}
-	// Add more commands as needed
+	case "LPUSH":
+		if len(args) >= 3 {
+			fmt.Printf("✅ Replicated LPUSH %s\n", args[1])
+		}
+	case "RPUSH":
+		if len(args) >= 3 {
+			fmt.Printf("✅ Replicated RPUSH %s\n", args[1])
+		}
+	case "INCR":
+		if len(args) >= 2 {
+			fmt.Printf("✅ Replicated INCR %s\n", args[1])
+		}
+	case "DECR":
+		if len(args) >= 2 {
+			fmt.Printf("✅ Replicated DECR %s\n", args[1])
+		}
 	default:
-		fmt.Printf("Unknown replicated command: %s\n", args[0])
+		fmt.Printf("⚠️ Unknown replicated command: %s\n", command)
 	}
 }
 
 func receiveRDB(reader *bufio.Reader) bool {
 	line, err := reader.ReadString('\n')
 	if err != nil {
-		fmt.Printf("Failed to read RDB bulk string header: %v\n", err)
+		fmt.Printf("❌ Failed to read RDB header: %v\n", err)
 		return false
 	}
 
 	line = strings.TrimSpace(line)
-
 	if !strings.HasPrefix(line, "$") {
-		fmt.Printf("Expected RDB bulk string, got: %s\n", line)
+		fmt.Printf("❌ Expected RDB bulk string, got: %s\n", line)
 		return false
 	}
 
 	lengthStr := strings.TrimPrefix(line, "$")
 	rdbLength, err := strconv.Atoi(lengthStr)
 	if err != nil {
-		fmt.Printf("Invalid RDB length: %s\n", lengthStr)
+		fmt.Printf("❌ Invalid RDB length: %s\n", lengthStr)
 		return false
 	}
 
 	if rdbLength == -1 {
-		fmt.Println("Received null RDB")
+		fmt.Printf("📦 Received null RDB\n")
 		return true
 	}
 
 	rdbData := make([]byte, rdbLength)
 	bytesRead, err := io.ReadFull(reader, rdbData)
 	if err != nil {
-		fmt.Printf("Failed to read RDB data: %v\n", err)
+		fmt.Printf("❌ Failed to read RDB data: %v\n", err)
 		return false
 	}
 
 	if bytesRead != rdbLength {
-		fmt.Printf("RDB length mismatch: expected %d, got %d\n", rdbLength, bytesRead)
+		fmt.Printf("❌ RDB length mismatch: expected %d, got %d\n", rdbLength, bytesRead)
 		return false
 	}
 
-	fmt.Printf("✓ Received RDB file (%d bytes)\n", rdbLength)
+	fmt.Printf("📦 Received RDB file (%d bytes)\n", rdbLength)
 
 	if validateRDB(rdbData) {
-		fmt.Println("✓ RDB validation successful")
+		fmt.Printf("✅ RDB validation successful\n")
 		return true
-	} else {
-		fmt.Println("✗ RDB validation failed")
-		return false
 	}
+
+	fmt.Printf("❌ RDB validation failed\n")
+	return false
 }
 
 func validateRDB(rdbData []byte) bool {
@@ -247,20 +250,19 @@ func validateRDB(rdbData []byte) bool {
 
 	magic := string(rdbData[:5])
 	if magic != "REDIS" {
-		fmt.Printf("Invalid RDB magic: %s\n", magic)
+		fmt.Printf("❌ Invalid RDB magic: %s\n", magic)
 		return false
 	}
 
 	version := string(rdbData[5:9])
-	fmt.Printf("RDB version: %s\n", version)
-
+	fmt.Printf("📋 RDB version: %s\n", version)
 	return true
 }
 
 func sendCommand(conn net.Conn, command string) bool {
 	_, err := conn.Write([]byte(command))
 	if err != nil {
-		fmt.Printf("Failed to send command: %v\n", err)
+		fmt.Printf("❌ Failed to send command: %v\n", err)
 		return false
 	}
 	return true
@@ -270,9 +272,10 @@ func expectResponse(conn net.Conn, expected string) bool {
 	reader := bufio.NewReader(conn)
 	response, err := reader.ReadString('\n')
 	if err != nil {
-		fmt.Printf("Failed to read response: %v\n", err)
+		fmt.Printf("❌ Failed to read response: %v\n", err)
 		return false
 	}
+
 	response = strings.TrimSpace(response)
 	return response == expected
 }
