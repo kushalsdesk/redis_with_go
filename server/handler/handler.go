@@ -27,41 +27,43 @@ func HandleConnection(conn net.Conn) {
 		line = strings.TrimSpace(line)
 
 		if strings.HasPrefix(line, "*") {
-			numArgsStr := strings.TrimPrefix(line, "*")
-			numArgs, err := strconv.Atoi(numArgsStr)
-			if err != nil {
-				conn.Write([]byte("-ERR invalid array length\r\n"))
-				return
-			}
-
-			var parts []string
-			for i := 0; i < numArgs; i++ {
-				_, err := reader.ReadString('\n') // skip "$<len>"
-				if err != nil {
-					return
-				}
-				content, err := reader.ReadString('\n')
-				if err != nil {
-					return
-				}
-				parts = append(parts, strings.TrimSpace(content))
-			}
-
-			if len(parts) > 0 && commands.ShouldQueueCommand(conn, strings.ToUpper(parts[0])) {
-				commands.QueueCommand(conn, parts)
-			} else {
+			// Parse RESP array format
+			parts := parseRESPArray(reader, line)
+			if len(parts) > 0 {
 				commands.Dispatch(parts, conn)
 			}
-
 		} else {
+			// Parse simple string format
 			parts := strings.Fields(line)
 			if len(parts) > 0 {
-				if commands.ShouldQueueCommand(conn, strings.ToUpper(parts[0])) {
-					commands.QueueCommand(conn, parts)
-				} else {
-					commands.Dispatch(parts, conn)
-				}
+				commands.Dispatch(parts, conn)
 			}
 		}
 	}
+}
+
+func parseRESPArray(reader *bufio.Reader, line string) []string {
+	numArgsStr := strings.TrimPrefix(line, "*")
+	numArgs, err := strconv.Atoi(numArgsStr)
+	if err != nil {
+		return nil
+	}
+
+	var parts []string
+	for i := 0; i < numArgs; i++ {
+		// Skip bulk string length line
+		_, err := reader.ReadString('\n')
+		if err != nil {
+			return nil
+		}
+
+		// Read actual content
+		content, err := reader.ReadString('\n')
+		if err != nil {
+			return nil
+		}
+		parts = append(parts, strings.TrimSpace(content))
+	}
+
+	return parts
 }

@@ -17,7 +17,6 @@ func Set(key, val string, ttl time.Duration) {
 	}
 
 	data[key] = value
-
 }
 
 func Get(key string) (string, bool) {
@@ -29,13 +28,10 @@ func Get(key string) (string, bool) {
 		return "", false
 	}
 
-	//check expiry
-	if value.Expiry != nil && time.Now().After(*value.Expiry) {
-		delete(data, key)
+	if isExpired(value, key) {
 		return "", false
 	}
 
-	//check type
 	if value.Type != STRING {
 		return "", false
 	}
