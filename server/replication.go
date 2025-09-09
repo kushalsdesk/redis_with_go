@@ -139,7 +139,6 @@ func processRESPArray(reader *bufio.Reader, line string) bool {
 			return false
 		}
 
-		// Read content
 		content, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Printf("❌ Failed to read bulk string content: %v\n", err)
@@ -176,19 +175,107 @@ func processReplicatedCommand(args []string) {
 		}
 	case "LPUSH":
 		if len(args) >= 3 {
-			fmt.Printf("✅ Replicated LPUSH %s\n", args[1])
+			key := args[1]
+			elements := args[2:]
+			length := store.ListPush(key, elements, true)
+			fmt.Printf("✅ Replicated LPUSH %s (length: %d)\n", key, length)
 		}
 	case "RPUSH":
 		if len(args) >= 3 {
-			fmt.Printf("✅ Replicated RPUSH %s\n", args[1])
+			key := args[1]
+			elements := args[2:]
+			length := store.ListPush(key, elements, false)
+			fmt.Printf("✅ Replicated RPUSH %s (length: %d)\n", key, length)
+		}
+	case "LPOP":
+		if len(args) >= 2 {
+			key := args[1]
+			count := 1
+			if len(args) == 3 {
+				if parsedCount, err := strconv.Atoi(args[2]); err == nil {
+					count = parsedCount
+				}
+			}
+			elements, _ := store.ListPopMultiple(key, count, true)
+			fmt.Printf("✅ Replicated LPOP %s (popped %d elements)\n", key, len(elements))
+		}
+	case "RPOP":
+		if len(args) >= 2 {
+			key := args[1]
+			count := 1
+			if len(args) == 3 {
+				if parsedCount, err := strconv.Atoi(args[2]); err == nil {
+					count = parsedCount
+				}
+			}
+			elements, _ := store.ListPopMultiple(key, count, false)
+			fmt.Printf("✅ Replicated RPOP %s (popped %d elements)\n", key, len(elements))
 		}
 	case "INCR":
 		if len(args) >= 2 {
-			fmt.Printf("✅ Replicated INCR %s\n", args[1])
+			key := args[1]
+			newValue, err := store.Increment(key)
+			if err != nil {
+				fmt.Printf("❌ Failed to replicate INCR %s: %v\n", key, err)
+			} else {
+				fmt.Printf("✅ Replicated INCR %s = %d\n", key, newValue)
+			}
 		}
 	case "DECR":
 		if len(args) >= 2 {
-			fmt.Printf("✅ Replicated DECR %s\n", args[1])
+			key := args[1]
+			newValue, err := store.Decrement(key)
+			if err != nil {
+				fmt.Printf("❌ Failed to replicate DECR %s: %v\n", key, err)
+			} else {
+				fmt.Printf("✅ Replicated DECR %s = %d\n", key, newValue)
+			}
+		}
+	case "INCRBY":
+		if len(args) == 2 {
+			key := args[1]
+			newValue, err := store.Increment(key)
+			if err != nil {
+				fmt.Printf("❌ Failed to replicate INCRBY %s: %v\n", key, err)
+			} else {
+				fmt.Printf("✅ Replicated INCRBY %s (default 1) = %d\n", key, newValue)
+			}
+		} else if len(args) >= 3 {
+			key := args[1]
+			amount, err := strconv.ParseInt(args[2], 10, 64)
+			if err != nil {
+				fmt.Printf("❌ Invalid INCRBY amount: %s\n", args[2])
+				return
+			}
+			newValue, err := store.IncrementBy(key, amount)
+			if err != nil {
+				fmt.Printf("❌ Failed to replicate INCRBY %s %d: %v\n", key, amount, err)
+			} else {
+				fmt.Printf("✅ Replicated INCRBY %s %d = %d\n", key, amount, newValue)
+			}
+		}
+	case "DECRBY":
+		if len(args) == 2 {
+			key := args[1]
+			newValue, err := store.Decrement(key)
+			if err != nil {
+				fmt.Printf("❌ Failed to replicate DECRBY %s: %v\n", key, err)
+			} else {
+				fmt.Printf("✅ Replicated DECRBY %s (default 1) = %d\n", key, newValue)
+			}
+		} else if len(args) >= 3 {
+			key := args[1]
+			amount, err := strconv.ParseInt(args[2], 10, 64)
+			if err != nil {
+				fmt.Printf("❌ Invalid DECRBY amount: %s\n", args[2])
+				return
+			}
+			newValue, err := store.DecrementBy(key, amount)
+			if err != nil {
+				fmt.Printf("❌ Failed to replicate DECRBY %s %d: %v\n", key, amount, err)
+			} else {
+				fmt.Printf("✅ Replicated DECRBY %s %d = %d\n", key, amount, newValue)
+			}
 		}
 	default:
 		fmt.Printf("⚠️ Unknown replicated command: %s\n", command)

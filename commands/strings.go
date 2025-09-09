@@ -28,7 +28,7 @@ func handleGet(args []string, conn net.Conn) {
 func handleSet(args []string, conn net.Conn) {
 	if len(args) < 3 {
 		conn.Write([]byte("-ERR wrong number of arguments for SET\r\n"))
-		return // ← this was missing
+		return
 	}
 	key := args[1]
 	val := args[2]
