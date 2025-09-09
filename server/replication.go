@@ -192,24 +192,38 @@ func processReplicatedCommand(args []string) {
 			key := args[1]
 			count := 1
 			if len(args) == 3 {
-				if parsedCount, err := strconv.Atoi(args[2]); err == nil {
+				if parsedCount, err := strconv.Atoi(args[2]); err == nil && parsedCount >= 0 {
 					count = parsedCount
+				} else {
+					fmt.Printf("❌ Invalid LPOP count: %s\n", args[2])
+					return
 				}
 			}
-			elements, _ := store.ListPopMultiple(key, count, true)
-			fmt.Printf("✅ Replicated LPOP %s (popped %d elements)\n", key, len(elements))
+			elements, exists := store.ListPopMultiple(key, count, true)
+			if !exists {
+				fmt.Printf("✅ Replicated LPOP %s (key not found or wrong type)\n", key)
+			} else {
+				fmt.Printf("✅ Replicated LPOP %s (popped %d elements)\n", key, len(elements))
+			}
 		}
 	case "RPOP":
 		if len(args) >= 2 {
 			key := args[1]
 			count := 1
 			if len(args) == 3 {
-				if parsedCount, err := strconv.Atoi(args[2]); err == nil {
+				if parsedCount, err := strconv.Atoi(args[2]); err == nil && parsedCount >= 0 {
 					count = parsedCount
+				} else {
+					fmt.Printf("❌ Invalid RPOP count: %s\n", args[2])
+					return
 				}
 			}
-			elements, _ := store.ListPopMultiple(key, count, false)
-			fmt.Printf("✅ Replicated RPOP %s (popped %d elements)\n", key, len(elements))
+			elements, exists := store.ListPopMultiple(key, count, false)
+			if !exists {
+				fmt.Printf("✅ Replicated RPOP %s (key not found or wrong type)\n", key)
+			} else {
+				fmt.Printf("✅ Replicated RPOP %s (popped %d elements)\n", key, len(elements))
+			}
 		}
 	case "INCR":
 		if len(args) >= 2 {
