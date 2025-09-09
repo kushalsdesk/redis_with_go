@@ -13,8 +13,23 @@ func Dispatch(args []string, conn net.Conn) {
 
 	command := strings.ToUpper(args[0])
 
+	if ShouldQueueCommand(conn, command) {
+		QueueCommand(conn, args)
+		return
+	}
+
 	switch command {
-	// Read commands (no propagation)
+	// Transaction commands
+	case "MULTI":
+		handleMulti(args, conn)
+	case "EXEC":
+		handleExec(args, conn)
+	case "DISCARD":
+		handleDiscard(args, conn)
+	case "UNDO":
+		handleUndo(args, conn)
+
+	// Read commands
 	case "PING":
 		handlePing(conn)
 	case "ECHO":
@@ -40,7 +55,7 @@ func Dispatch(args []string, conn net.Conn) {
 	case "BRPOP":
 		handleBRPop(args, conn)
 
-	// Write commands (with propagation)
+	// Write commands
 	case "SET":
 		handleSet(args, conn)
 		PropagateCommand(args)

@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/kushalsdesk/redis_with_go/store"
 )
 
 type TransactionState struct {
@@ -34,23 +32,20 @@ func getTransactionState(conn net.Conn) *TransactionState {
 	}
 	return state
 }
-func setTransactionState(conn net.Conn, state *TransactionState) {
 
+func setTransactionState(conn net.Conn, state *TransactionState) {
 	transactionMutex.Lock()
 	defer transactionMutex.Unlock()
 	transactionStates[conn] = state
 }
 
 func clearTransactionState(conn net.Conn) {
-
 	transactionMutex.Lock()
 	defer transactionMutex.Unlock()
 	delete(transactionStates, conn)
-
 }
 
 func ShouldQueueCommand(conn net.Conn, command string) bool {
-
 	state := getTransactionState(conn)
 	return state.InTransaction &&
 		command != "EXEC" &&
@@ -75,7 +70,6 @@ func QueueCommand(conn net.Conn, args []string) {
 	transactionStates[conn] = state
 
 	conn.Write([]byte("+QUEUED\r\n"))
-
 }
 
 func handleMulti(args []string, conn net.Conn) {
@@ -100,16 +94,16 @@ func handleMulti(args []string, conn net.Conn) {
 	conn.Write([]byte("+OK\r\n"))
 }
 
+// MockConn for testing transaction execution
 type MockConn struct {
 	responses []string
 }
 
-// needed  interfaces to imitate -> conn net.Conn
 func (m *MockConn) Write(b []byte) (int, error) {
 	m.responses = append(m.responses, string(b))
 	return len(b), nil
-
 }
+
 func (m *MockConn) Read(b []byte) (int, error)         { return 0, nil }
 func (m *MockConn) Close() error                       { return nil }
 func (m *MockConn) LocalAddr() net.Addr                { return nil }
@@ -210,168 +204,27 @@ func handleUndo(args []string, conn net.Conn) {
 		return
 	}
 
-	// Get the commands to be removed
 	removedCommands := state.QueuedCommands[len(state.QueuedCommands)-undoCount:]
 
-	// Remove the commands from queue
+	//removing from queue
 	transactionMutex.Lock()
 	state.QueuedCommands = state.QueuedCommands[:len(state.QueuedCommands)-undoCount]
 	transactionStates[conn] = state
 	transactionMutex.Unlock()
 
-	// Format: *N\r\n where N = number of elements in response
-
 	totalElements := undoCount + 2
 	resp := fmt.Sprintf("*%d\r\n", totalElements)
 
-	// Add summary as bulk string
 	summary := fmt.Sprintf("Removed %d commands:", undoCount)
 	resp += fmt.Sprintf("$%d\r\n%s\r\n", len(summary), summary)
 
-	// Add each removed command as bulk string
 	for _, cmd := range removedCommands {
 		cmdStr := strings.Join(cmd, " ")
 		resp += fmt.Sprintf("$%d\r\n%s\r\n", len(cmdStr), cmdStr)
 	}
 
-	// Add remaining count info as bulk string
 	remainingInfo := fmt.Sprintf("%d commands remaining in queue", len(state.QueuedCommands))
 	resp += fmt.Sprintf("$%d\r\n%s\r\n", len(remainingInfo), remainingInfo)
 
-	conn.Write([]byte(resp))
-}
-
-func handleIncr(args []string, conn net.Conn) {
-	if len(args) != 2 {
-		conn.Write([]byte("-ERR wrong number of arguments for 'incr' command\r\n"))
-		return
-	}
-
-	key := args[1]
-	newValue, err := store.Increment(key)
-	if err != nil {
-		if strings.Contains(err.Error(), "WRONGTYPE") {
-			conn.Write([]byte("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n"))
-		} else if strings.Contains(err.Error(), "overflow") {
-			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
-		} else {
-			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
-		}
-		return
-	}
-
-	resp := fmt.Sprintf(":%d\r\n", newValue)
-	conn.Write([]byte(resp))
-}
-
-func handleDecr(args []string, conn net.Conn) {
-	if len(args) != 2 {
-		conn.Write([]byte("-ERR wrong number of arguments for 'decr' command\r\n"))
-		return
-	}
-
-	key := args[1]
-	newValue, err := store.Decrement(key)
-	if err != nil {
-		if strings.Contains(err.Error(), "WRONGTYPE") {
-			conn.Write([]byte("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n"))
-		} else if strings.Contains(err.Error(), "overflow") {
-			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
-		} else {
-			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
-		}
-		return
-	}
-
-	resp := fmt.Sprintf(":%d\r\n", newValue)
-	conn.Write([]byte(resp))
-}
-
-func handleIncrBy(args []string, conn net.Conn) {
-	if len(args) == 2 {
-		handleIncr(args, conn)
-		return
-	}
-
-	if len(args) != 3 {
-		conn.Write([]byte("-ERR wrong number of arguments for 'incrby' command\r\n"))
-		return
-	}
-
-	key := args[1]
-	amount, err := strconv.ParseInt(args[2], 10, 64)
-	if err != nil {
-		conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
-		return
-	}
-
-	if amount == 0 {
-		currentVal, exists := store.Get(key)
-		if !exists {
-			conn.Write([]byte(":0\r\n"))
-		} else {
-			parsedVal, err := strconv.ParseInt(currentVal, 10, 64)
-			if err != nil {
-				conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
-				return
-			}
-			resp := fmt.Sprintf(":%d\r\n", parsedVal)
-			conn.Write([]byte(resp))
-		}
-		return
-	}
-
-	if amount < 0 {
-		conn.Write([]byte("-ERR increment amount must be positive\r\n"))
-		return
-	}
-
-	newValue, err := store.IncrementBy(key, amount)
-	if err != nil {
-		if strings.Contains(err.Error(), "WRONGTYPE") {
-			conn.Write([]byte("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n"))
-		} else if strings.Contains(err.Error(), "overflow") {
-			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
-		} else {
-			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
-		}
-		return
-	}
-
-	resp := fmt.Sprintf(":%d\r\n", newValue)
-	conn.Write([]byte(resp))
-}
-
-func handleDecrBy(args []string, conn net.Conn) {
-	if len(args) == 2 {
-		handleDecr(args, conn)
-		return
-	}
-
-	if len(args) != 3 {
-		conn.Write([]byte("-ERR wrong number of arguments for 'decrby' command\r\n"))
-		return
-	}
-
-	key := args[1]
-	amount, err := strconv.ParseInt(args[2], 10, 64)
-	if err != nil {
-		conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
-		return
-	}
-
-	newValue, err := store.DecrementBy(key, amount)
-	if err != nil {
-		if strings.Contains(err.Error(), "WRONGTYPE") {
-			conn.Write([]byte("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n"))
-		} else if strings.Contains(err.Error(), "overflow") {
-			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
-		} else {
-			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
-		}
-		return
-	}
-
-	resp := fmt.Sprintf(":%d\r\n", newValue)
 	conn.Write([]byte(resp))
 }
