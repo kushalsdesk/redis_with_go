@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -249,32 +248,22 @@ func handleIncr(args []string, conn net.Conn) {
 	}
 
 	key := args[1]
-
-	currentVal, exists := store.Get(key)
-	var newValue int64
-
-	if !exists {
-		newValue = 1
-	} else {
-		parsedVal, err := strconv.ParseInt(currentVal, 10, 64)
-		if err != nil {
-			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
-			return
-		}
-
-		if parsedVal == math.MaxInt64 {
+	newValue, err := store.Increment(key)
+	if err != nil {
+		if strings.Contains(err.Error(), "WRONGTYPE") {
+			conn.Write([]byte("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n"))
+		} else if strings.Contains(err.Error(), "overflow") {
 			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
-			return
+		} else {
+			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
 		}
-		newValue = parsedVal + 1
+		return
 	}
-	store.Set(key, strconv.FormatInt(newValue, 10), 0)
 
 	resp := fmt.Sprintf(":%d\r\n", newValue)
 	conn.Write([]byte(resp))
 }
 
-// DECR command - decrement by 1
 func handleDecr(args []string, conn net.Conn) {
 	if len(args) != 2 {
 		conn.Write([]byte("-ERR wrong number of arguments for 'decr' command\r\n"))
@@ -282,35 +271,22 @@ func handleDecr(args []string, conn net.Conn) {
 	}
 
 	key := args[1]
-	currentVal, exists := store.Get(key)
-
-	var newValue int64
-
-	if !exists {
-		newValue = -1 // Non-existent key becomes -1 (opposite of INCR)
-	} else {
-		parsedVal, err := strconv.ParseInt(currentVal, 10, 64)
-		if err != nil {
-			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
-			return
-		}
-
-		// Check for underflow
-		if parsedVal == math.MinInt64 {
+	newValue, err := store.Decrement(key)
+	if err != nil {
+		if strings.Contains(err.Error(), "WRONGTYPE") {
+			conn.Write([]byte("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n"))
+		} else if strings.Contains(err.Error(), "overflow") {
 			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
-			return
+		} else {
+			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
 		}
-
-		newValue = parsedVal - 1
+		return
 	}
-
-	store.Set(key, strconv.FormatInt(newValue, 10), 0)
 
 	resp := fmt.Sprintf(":%d\r\n", newValue)
 	conn.Write([]byte(resp))
 }
 
-// INCRBY command - increment by specified amount
 func handleIncrBy(args []string, conn net.Conn) {
 	if len(args) == 2 {
 		handleIncr(args, conn)
@@ -330,7 +306,18 @@ func handleIncrBy(args []string, conn net.Conn) {
 	}
 
 	if amount == 0 {
-		conn.Write([]byte("$-1(Use 'INCR' command instead)\r\n"))
+		currentVal, exists := store.Get(key)
+		if !exists {
+			conn.Write([]byte(":0\r\n"))
+		} else {
+			parsedVal, err := strconv.ParseInt(currentVal, 10, 64)
+			if err != nil {
+				conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
+				return
+			}
+			resp := fmt.Sprintf(":%d\r\n", parsedVal)
+			conn.Write([]byte(resp))
+		}
 		return
 	}
 
@@ -339,34 +326,22 @@ func handleIncrBy(args []string, conn net.Conn) {
 		return
 	}
 
-	currentVal, exists := store.Get(key)
-	var newValue int64
-
-	if !exists {
-		newValue = amount
-	} else {
-		parsedVal, err := strconv.ParseInt(currentVal, 10, 64)
-		if err != nil {
-			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
-			return
-		}
-
-		// Check for overflow
-		if parsedVal > 0 && amount > math.MaxInt64-parsedVal {
+	newValue, err := store.IncrementBy(key, amount)
+	if err != nil {
+		if strings.Contains(err.Error(), "WRONGTYPE") {
+			conn.Write([]byte("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n"))
+		} else if strings.Contains(err.Error(), "overflow") {
 			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
-			return
+		} else {
+			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
 		}
-
-		newValue = parsedVal + amount
+		return
 	}
-
-	store.Set(key, strconv.FormatInt(newValue, 10), 0)
 
 	resp := fmt.Sprintf(":%d\r\n", newValue)
 	conn.Write([]byte(resp))
 }
 
-// DECRBY command - decrement by specified amount (supports positive and negative)
 func handleDecrBy(args []string, conn net.Conn) {
 	if len(args) == 2 {
 		handleDecr(args, conn)
@@ -385,31 +360,17 @@ func handleDecrBy(args []string, conn net.Conn) {
 		return
 	}
 
-	currentVal, exists := store.Get(key)
-	var newValue int64
-
-	if !exists {
-		newValue = -amount
-	} else {
-		parsedVal, err := strconv.ParseInt(currentVal, 10, 64)
-		if err != nil {
+	newValue, err := store.DecrementBy(key, amount)
+	if err != nil {
+		if strings.Contains(err.Error(), "WRONGTYPE") {
+			conn.Write([]byte("-WRONGTYPE Operation against a key holding the wrong kind of value\r\n"))
+		} else if strings.Contains(err.Error(), "overflow") {
+			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
+		} else {
 			conn.Write([]byte("-ERR value is not an integer or out of range\r\n"))
-			return
 		}
-
-		if amount > 0 && parsedVal < math.MinInt64+amount {
-			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
-			return
-		}
-		if amount < 0 && parsedVal > 9223372036854775807+amount {
-			conn.Write([]byte("-ERR increment or decrement would overflow\r\n"))
-			return
-		}
-
-		newValue = parsedVal - amount
+		return
 	}
-
-	store.Set(key, strconv.FormatInt(newValue, 10), 0)
 
 	resp := fmt.Sprintf(":%d\r\n", newValue)
 	conn.Write([]byte(resp))
