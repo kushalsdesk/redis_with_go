@@ -49,12 +49,17 @@ type ReplicationState struct {
 	ConnectedSlaves  int
 	Replicas         []string
 	ReplicaConns     map[string]*ReplicationConnection
+	SlaveOffset      int64
 }
 
 type ReplicationConnection struct {
 	Address    string
 	Connection net.Conn
 	Connected  bool
+	Offset     int64
+	LastACK    time.Time
+	Lag        int64
+	ReplID     string
 }
 
 var (
@@ -70,6 +75,11 @@ var (
 	}
 	replicationMutex sync.RWMutex
 )
+
+func getReplicaID(conn net.Conn) string {
+	return conn.RemoteAddr().String()
+
+}
 
 func generateReplID() string {
 	bytes := make([]byte, 20)
