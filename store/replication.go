@@ -66,7 +66,7 @@ func GetAllReplicaLags() map[string]int64 {
 	return lags
 }
 
-func estimateCommandSize(args []string) int64 {
+func EstimateCommandSize(args []string) int64 {
 	size := int64(20)
 	for _, arg := range args {
 		size += int64(len(arg) + 20)

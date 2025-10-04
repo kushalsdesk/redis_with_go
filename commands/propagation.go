@@ -56,17 +56,22 @@ func PropagateCommand(args []string) {
 	}
 
 	respCommand := EncodeRESPArray(args)
-	fmt.Printf("📡 Propagating to %d replicas: %v\n", len(replicas), args)
+	cmdSize := store.EstimateCommandSize(args)
+	fmt.Printf("📡 Propagating to %d replicas: %v (size ~%d bytes)\n", len(replicas), args, cmdSize)
 
+	successCount := 0
 	for _, replica := range replicas {
 		go func(r *store.ReplicationConnection) {
 			_, err := r.Connection.Write(respCommand)
 			if err != nil {
 				fmt.Printf("❌ Propagation failed to %s: %v\n", r.Address, err)
 				store.RemoveReplicaByConnection(r.Connection)
+			} else {
+				successCount++
 			}
 		}(replica)
 	}
 
+	store.UpdateMasterOffset(cmdSize)
 	fmt.Printf("✅ Command propagated successfully\n")
 }

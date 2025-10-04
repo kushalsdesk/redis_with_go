@@ -159,6 +159,7 @@ func processReplicatedCommand(args []string) {
 		return
 	}
 
+	oldOffset := store.GetSlaveOffset()
 	command := strings.ToUpper(args[0])
 	switch command {
 	case "SET":
@@ -294,6 +295,11 @@ func processReplicatedCommand(args []string) {
 	default:
 		fmt.Printf("⚠️ Unknown replicated command: %s\n", command)
 	}
+
+	cmdSize := store.EstimateCommandSize(args)
+	newOffset := oldOffset + cmdSize
+	store.SetSlaveOffset(newOffset)
+
 }
 
 func receiveRDB(reader *bufio.Reader) bool {
