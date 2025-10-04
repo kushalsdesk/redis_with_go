@@ -143,6 +143,11 @@ func GetReplicationState() *ReplicationState {
 	replicationMutex.RLock()
 	defer replicationMutex.RUnlock()
 
+	replicaConnsCopy := make(map[string]*ReplicationConnection)
+	for k, v := range replicationState.ReplicaConns {
+		replicaConnsCopy[k] = v
+	}
+
 	return &ReplicationState{
 		Role:             replicationState.Role,
 		MasterHost:       replicationState.MasterHost,
@@ -151,6 +156,8 @@ func GetReplicationState() *ReplicationState {
 		MasterReplOffset: replicationState.MasterReplOffset,
 		ConnectedSlaves:  replicationState.ConnectedSlaves,
 		Replicas:         append([]string{}, replicationState.Replicas...),
+		ReplicaConns:     replicaConnsCopy,
+		SlaveOffset:      replicationState.SlaveOffset,
 	}
 }
 
