@@ -84,12 +84,12 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [x] Empty RDB transfer............................................... 🟩
 - [x] Single-replica propagation ...................................... 🟨
 - [x] Multi-replica propagation ....................................... 🟥
-- [ ] Command Processing .............................................. 🟥
-- [ ] ACKs with no commands ........................................... 🟩
-- [ ] ACKs with commands .............................................. 🟨
-- [ ] WAIT with no replicas ........................................... 🟨
-- [ ] WAIT with no commands ........................................... 🟨
-- [ ] WAIT with multiple commands ..................................... 🟥
+- [x] Command Processing .............................................. 🟥
+- [x] ACKs with no commands ........................................... 🟩
+- [x] ACKs with commands .............................................. 🟨
+- [x] WAIT with no replicas ........................................... 🟨
+- [x] WAIT with no commands ........................................... 🟨
+- [x] WAIT with multiple commands ..................................... 🟥
 
 ### [Phase 6: RDB Persistance](./docs/phase6.md) - **REMAINING**
 

@@ -14,7 +14,7 @@ metadata:
   name: redis-pod
 spec:
   containers:
-    - image: localhost/redis-clone:v1.2
+    - image: localhost/redis-clone:v1.5
       name: master
       ports:
         - containerPort: 6379
@@ -28,6 +28,6 @@ spec:
         - "6380"
         - --replicaof
         - "master 6379"
-      image: localhost/redis-clone:v1.2
+      image: localhost/redis-clone:v1.5
       name: slave
       securityContext: {}
