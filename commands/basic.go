@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/kushalsdesk/redis_with_go/store"
 )
@@ -41,19 +42,46 @@ func handleInfo(args []string, conn net.Conn) {
 			info.WriteString(fmt.Sprintf("connected_slaves:%d\r\n", replState.ConnectedSlaves))
 			info.WriteString(fmt.Sprintf("master_replid:%s\r\n", replState.MasterReplID))
 			info.WriteString(fmt.Sprintf("master_repl_offset:%d\r\n", replState.MasterReplOffset))
-			info.WriteString("second_repl_offset:-1\r\n")
+
+			minOffset := int64(-1)
+			conns := store.GetReplicaConnections()
+			for _, rep := range conns {
+				if minOffset == -1 || rep.Offset < minOffset {
+					minOffset = rep.Offset
+				}
+			}
+			info.WriteString(fmt.Sprintf("second_repl_offset:%d\r\n", minOffset))
+
 			info.WriteString("repl_backlog_active:0\r\n")
 			info.WriteString("repl_backlog_size:1048576\r\n")
 			info.WriteString("repl_backlog_first_byte_offset:0\r\n")
 			info.WriteString("repl_backlog_histlen:0\r\n")
+
+			for i, rep := range conns {
+				linkStatus := "online"
+				if time.Since(rep.LastACK) > 10*time.Second {
+					linkStatus = "disconnected"
+				}
+				info.WriteString(fmt.Sprintf("slave%d:ip=%s,port=...,state=%s,offset=%d,lag=%d\r\n",
+					i, rep.Address, linkStatus, rep.Offset, rep.Lag))
+			}
 		} else {
 			info.WriteString("role:slave\r\n")
 			info.WriteString(fmt.Sprintf("master_host:%s\r\n", replState.MasterHost))
 			info.WriteString(fmt.Sprintf("master_port:%s\r\n", replState.MasterPort))
-			info.WriteString("master_link_status:down\r\n")
-			info.WriteString("master_last_io_seconds_ago:-1\r\n")
+
+			linkStatus := "down"
+			if store.GetSlaveOffset() > 0 {
+				linkStatus = "up"
+			}
+			lastIO := -1
+			if linkStatus == "up" {
+				lastIO = 1
+			}
+			info.WriteString(fmt.Sprintf("master_link_status:%s\r\n", linkStatus))
+			info.WriteString(fmt.Sprintf("master_last_io_seconds_ago:%d\r\n", lastIO))
 			info.WriteString("master_sync_in_progress:0\r\n")
-			info.WriteString("slave_repl_offset:0\r\n")
+			info.WriteString(fmt.Sprintf("slave_repl_offset:%d\r\n", store.GetSlaveOffset())) // Dynamic
 			info.WriteString("slave_priority:100\r\n")
 			info.WriteString("slave_read_only:1\r\n")
 		}
