@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/kushalsdesk/redis_with_go/store"
@@ -91,6 +92,14 @@ func handleReplconf(args []string, conn net.Conn) {
 			conn.Write([]byte("-ERR wrong number of arguments for REPLCONF ack\r\n"))
 			return
 		}
+		offsetStr := args[2]
+		offset, err := strconv.ParseInt(offsetStr, 10, 64)
+		if err != nil {
+			conn.Write([]byte("-ERR invalid ACK offset: " + err.Error() + "\r\n"))
+		}
+
+		replicaID := conn.RemoteAddr().String()
+		store.UpdateReplicaOffset(replicaID, offset)
 		conn.Write([]byte("+OK\r\n"))
 
 	default:

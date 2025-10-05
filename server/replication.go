@@ -41,6 +41,8 @@ func performReplicationHandshake(masterHost, masterPort, serverPort string) {
 	fmt.Printf("🎉 Replication handshake completed!\n")
 	fmt.Printf("📡 Listening for propagated commands...\n")
 
+	go startACKTicker(conn, store.GetACKChannel())
+
 	reader := bufio.NewReader(conn)
 	listenForPropagatedCommands(conn, reader)
 }
@@ -150,6 +152,9 @@ func processRESPArray(reader *bufio.Reader, line string) bool {
 	if len(parts) > 0 {
 		fmt.Printf("📥 Received: %v\n", parts)
 		processReplicatedCommand(parts)
+
+		newOffset := store.GetSlaveOffset()
+		store.SendACKTrigger(newOffset)
 	}
 	return true
 }
@@ -385,4 +390,44 @@ func expectResponse(conn net.Conn, expected string) bool {
 
 	response = strings.TrimSpace(response)
 	return response == expected
+}
+
+//sendACK sends REPLCONF ACK <offset> to master
+
+func sendACK(masterConn net.Conn, offset int64) bool {
+
+	offsetStr := strconv.FormatInt(offset, 10)
+	ackLen := len(offsetStr)
+	ackCmd := fmt.Sprintf("*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$%d\r\n%s\r\n", ackLen, offsetStr)
+	_, err := masterConn.Write([]byte(ackCmd))
+
+	if err != nil {
+		fmt.Printf("❌ Failed to send ACK %d to master: %v\n", offset, err)
+		return false
+
+	}
+	fmt.Printf("📤 Slave sent ACK to master: offset=%d\n", offset)
+	return true
+}
+
+// startACKTicker starts periodic ACKs(every 1s)
+func startACKTicker(masterConn net.Conn, offsetChan <-chan int64) {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case newOffset := <-offsetChan:
+			if !sendACK(masterConn, newOffset) {
+				fmt.Printf("❌ ACK ticker stopped due to send failure\n")
+				return
+			}
+		case <-ticker.C:
+			currentOffset := store.GetSlaveOffset()
+			if !sendACK(masterConn, currentOffset) {
+				fmt.Printf("❌ ACK ticker stopped due to periodic send failure\n")
+				return
+			}
+		}
+	}
 }

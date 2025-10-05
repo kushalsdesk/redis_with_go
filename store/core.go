@@ -172,6 +172,10 @@ func SetReplicationRole(role, masterHost, masterPort string) {
 	if role == "slave" {
 		replicationState.ConnectedSlaves = 0
 		replicationState.Replicas = make([]string, 0)
+		replicationState.SlaveOffset = 0
+		InitACKChannel()
+	} else {
+		CloseACKChannel()
 	}
 }
 

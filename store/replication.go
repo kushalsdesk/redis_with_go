@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// Global channel for ACK triggers
+var ackOffsetChan chan int64
+
 func UpdateMasterOffset(delta int64) {
 	IncrementReplOffset(delta)
 	fmt.Printf("📊 Master offset updated: +%d (total: %d)\n", delta, GetReplOffset())
@@ -85,4 +88,30 @@ func InitializeReplicaFields(conn net.Conn, replID string) {
 		rep.LastACK = time.Now()
 		rep.Lag = replicationState.MasterReplOffset
 	}
+}
+
+func InitACKChannel() {
+	if ackOffsetChan == nil {
+		ackOffsetChan = make(chan int64, 10)
+		fmt.Printf("📢 Initialized ACK channel for slave\n")
+	}
+}
+
+func CloseACKChannel() {
+	if ackOffsetChan != nil {
+		close(ackOffsetChan)
+		ackOffsetChan = nil
+	}
+}
+
+func SendACKTrigger(offset int64) {
+	if ackOffsetChan != nil {
+		ackOffsetChan <- offset
+		fmt.Printf("📢 Triggered immediate ACK for offset %d\n", offset)
+	}
+}
+
+// GetACKChannel returns the channel for ticker
+func GetACKChannel() <-chan int64 {
+	return ackOffsetChan
 }
