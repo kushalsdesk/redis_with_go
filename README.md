@@ -54,7 +54,7 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [x] Blocking reads without timeout (BLOCK 0) ........................ 🟥
 - [x] Blocking reads using $ .......................................... 🟥
 
-### [Phase 4: Transactions](./docs/phase4.md) - **COMPLETED**
+### [Phase 4: Transactions](./docs/phase4.md) - **✅ COMPLETED**
 
 - [x] The INCR command ................................................ 🟩
 - [x] The INCRBY command .............................................. 🟨
@@ -70,7 +70,7 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [x] Multiple transactions ........................................... 🟥
 - [x] Undo Single/Multiple transactions ............................... 🟨
 
-### [Phase 5: Replication](./docs/phase5.md) - **IN PROGRESS**
+### [Phase 5: Replication](./docs/phase5.md) - **✅ COMPLETED**
 
 - [x] Configure listening port ........................................ 🟩
 - [x] The INFO command on a replica ................................... 🟩
@@ -91,7 +91,7 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [x] WAIT with no commands ........................................... 🟨
 - [x] WAIT with multiple commands ..................................... 🟥
 
-### [Phase 6: RDB Persistance](./docs/phase6.md) - **REMAINING**
+### [Phase 6: RDB Persistance](./docs/phase6.md) - **⏳ REMAINING**
 
 - [ ] RDB file Config ................................................. 🟩
 - [ ] Read a key ...................................................... 🟨
@@ -100,7 +100,7 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [ ] Read multiple string values ..................................... 🟨
 - [ ] Read value with expiry .......................................... 🟨
 
-### [Phase 7: PUB/SUB ](./docs/phase7.md) - **REMAINING**
+### [Phase 7: PUB/SUB ](./docs/phase7.md) - **⏳ REMAINING**
 
 - [ ] Subscribe to multiple channels .................................. 🟩
 - [ ] Subscribe to a channel .......................................... 🟩
@@ -110,50 +110,100 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 - [ ] Deliver message ................................................. 🟥
 - [ ] Unsubscribe ..................................................... 🟨
 
-### [Phase 8: Sorted Sets ](./docs/phase8.md) - **REMAINING**
+### [Phase 8: Sorted Sets ](./docs/phase8.md) - **⏳ REMAINING**
 
-- [ ] Create a sorted set .................................. 🟩
-- [ ] Add members ................................. 🟨
-- [ ] Retrieve member rank .................................. 🟨
-- [ ] List sorted set members .................................. 🟩
-- [ ] ZRANGE with negative indexes .................................. 🟩
-- [ ] Count sorted set members .................................. 🟩
-- [ ] Retrieve member score .................................. 🟨
-- [ ] Remove a member .................................. 🟩
+- [ ] Create a sorted set ............................................. 🟩
+- [ ] Add members ..................................................... 🟨
+- [ ] Retrieve member rank ............................................ 🟨
+- [ ] List sorted set members ......................................... 🟩
+- [ ] ZRANGE with negative indexes .................................... 🟩
+- [ ] Count sorted set members ........................................ 🟩
+- [ ] Retrieve member score ........................................... 🟨
+- [ ] Remove a member ................................................. 🟩
 
 ## Project Structure
 
 ```
 redis_with_go/
 ├── app/
-│   └── main.go                    # Entry point
+│   └── main.go                       # Application entry point with CLI flags & server initialization
+│
 ├── server/
-│   ├── server.go                  # TCP server setup
+│   ├── server.go                     # TCP server setup and connection acceptance
+│   ├── replication.go                # Replication client logic (handshake, RDB transfer, command sync)
 │   └── handler/
-│       └── handler.go             # RESP protocol parsing & connection handling
-├── commands/
-│   ├── basic.go                   # PING, ECHO commands
-│   ├── dispatch.go                # Command routing & distribution
-│   ├── list_blocking.go           # BLPOP, BRPOP commands
-│   ├── lists.go                   # LPUSH, RPUSH, LRANGE, LLEN, etc.
-│   ├── stream_blocking.go         # XREAD (blocking) commands
-│   ├── streams.go                 # XADD, XRANGE commands
-│   ├── strings.go                 # SET, GET commands
-    ├── transactions.go            # INCR,DECR, MULTI, EXEC, UNDO  commands
-│   └── utils.go                   # TYPE command & utilities
-├── store/                         # Refactored storage layer
-│   ├── core.go                    # Core data structures & utilities
-│   ├── string_ops.go              # String operations (SET, GET)
-│   ├── list_ops.go                # List operations (PUSH, POP, RANGE)
-│   ├── list_blocking.go           # List blocking operations (BLPOP, BRPOP)
-│   ├── stream_ops.go              # Stream operations (XADD, XRANGE)
-│   └── stream_blocking.go         # Stream blocking operations (XREAD)
+│       └── handler.go                # RESP protocol parsing & connection lifecycle management
+│
+├── commands/                         # Command handlers and business logic
+│   ├── dispatch.go                   # Command routing, transaction detection & replication propagation
+│   ├── basic.go                      # PING, ECHO, INFO commands
+│   ├── strings.go                    # SET, GET commands with TTL support
+│   ├── counter.go                    # INCR, DECR, INCRBY, DECRBY atomic operations
+│   ├── lists.go                      # LPUSH, RPUSH, LPOP, RPOP, LRANGE, LLEN, LINDEX
+│   ├── list_blocking.go              # BLPOP, BRPOP with timeout/infinite blocking support
+│   ├── streams.go                    # XADD (with ID validation/generation), XRANGE
+│   ├── stream_blocking.go            # XREAD with BLOCK support and $ handling
+│   ├── transactions.go               # MULTI, EXEC, DISCARD, UNDO transaction management
+│   ├── replication.go                # PSYNC, REPLCONF (listening-port, capa, ACK) handlers
+│   ├── propagation.go                # Write command detection & RESP encoding for replication
+│   ├── wait.go                       # WAIT command for replica synchronization
+│   └── utils.go                      # TYPE command for key type inspection
+│
+├── store/                            # Data storage layer with concurrency control
+│   ├── core.go                       # Core data structures (RedisValue, Stream, ReplicationState)
+│   │                                 # Key type detection, expiry checking, replica management
+│   ├── string_ops.go                 # String storage (Set, Get, Delete) with TTL
+│   │                                 # Counter operations (Increment, Decrement with overflow protection)
+│   ├── list_ops.go                   # List operations (Push, Pop, Range, Index, Length)
+│   ├── list_blocking.go              # Blocking client registration, notification system for lists
+│   ├── stream_ops.go                 # Stream storage (Add, Range, ReadFrom)
+│   │                                 # ID parsing, validation, generation (auto/partial)
+│   ├── stream_blocking.go            # Blocking client registration, notification system for streams
+│   └── replication.go                # Replication offset tracking, ACK management
+│                                     # Replica lag calculation, command size estimation
+│
 ├── docs/
-│   ├── phase1.md                 # Bundle 1 implementation details
-│   ├── phase2.md                 # Bundle 2 implementation details
-│   └── phase3.md                 # Bundle 3 implementation details
-└── README.md
+│   ├── phase1.md                     # Phase 1 implementation details
+│   ├── phase2.md                     # Phase 2 implementation details
+│   ├── phase3.md                     # Phase 3 implementation details
+│   ├── phase4.md                     # Phase 4 implementation details
+│   └── phase5.md                     # Phase 5 implementation details
+│
+├── Dockerfile                        # Multi-stage Docker build for production deployment
+├── redis-cluster.yaml                # Kubernetes pod spec for master-slave setup
+├── go.mod                            # Go module dependencies
+└── README.md                         # This file
 ```
+
+## Architecture Highlights
+
+### 🏗️ **Layered Architecture**
+- **Server Layer**: TCP connection handling and RESP protocol parsing
+- **Command Layer**: Business logic and command execution
+- **Store Layer**: Thread-safe data storage and replication state
+
+### 🔒 **Concurrency & Safety**
+- Mutex-protected data structures for concurrent client access
+- Separate read/write locks for optimal performance
+- Channel-based notification system for blocking operations
+
+### 🔄 **Replication System**
+- Full master-slave replication with PSYNC protocol
+- Automatic command propagation to replicas
+- ACK-based synchronization with lag tracking
+- WAIT command for ensuring replica consistency
+
+### 🎯 **Blocking Operations**
+- Event-driven architecture using Go channels
+- Client registration system for BLPOP/BRPOP/XREAD
+- Timeout support (finite and infinite blocking)
+- Immediate notification when data becomes available
+
+### 💾 **Transaction Support**
+- Command queueing with MULTI/EXEC
+- Per-connection transaction state
+- DISCARD for cancellation
+- Custom UNDO command for removing queued commands
 
 ## Getting Started
 
@@ -171,452 +221,54 @@ go run app/main.go
 # Output: Server listening on :6379
 ```
 
-### 2. Connect with Redis CLI
+### 2. Run as Master-Slave Cluster
+
+```bash
+# Terminal 1 - Start master
+go run app/main.go --port 6379
+
+# Terminal 2 - Start slave
+go run app/main.go --port 6380 --replicaof "localhost 6379"
+```
+
+### 3. Connect with Redis CLI
 
 ```bash
 redis-cli -p 6379
 ```
 
-## Comprehensive Test Cases
-
-### **Phase 1: Basic Operations**
+### 4. Docker Deployment
 
 ```bash
-# Basic connectivity
-127.0.0.1:6379> PING
-PONG
+# Build image
+docker build -t redis-clone:latest .
 
-# Echo command
-127.0.0.1:6379> ECHO "Hello World"
-"Hello World"
-
-# String operations
-127.0.0.1:6379> SET mykey "hello"
-OK
-127.0.0.1:6379> GET mykey
-"hello"
-
-# String with TTL (5 second expiry)
-127.0.0.1:6379> SET tempkey "temporary" EX 5
-OK
-127.0.0.1:6379> GET tempkey
-"temporary"
-# Wait 5 seconds...
-127.0.0.1:6379> GET tempkey
-(nil)
-
-# Type checking
-127.0.0.1:6379> SET stringkey "value"
-OK
-127.0.0.1:6379> TYPE stringkey
-string
-127.0.0.1:6379> TYPE nonexistent
-none
+# Run container
+docker run -p 6379:6379 redis-clone:latest
 ```
 
-### **Phase 2: Lists & Blocking**
-
-```bash
-# List creation and basic operations
-127.0.0.1:6379> LPUSH mylist "world"
-(integer) 1
-127.0.0.1:6379> LPUSH mylist "hello"
-(integer) 2
-127.0.0.1:6379> RPUSH mylist "!"
-(integer) 3
-
-# List querying
-127.0.0.1:6379> LRANGE mylist 0 -1
-1) "hello"
-2) "world"
-3) "!"
-127.0.0.1:6379> LLEN mylist
-(integer) 3
-127.0.0.1:6379> LINDEX mylist 1
-"world"
-
-# List popping
-127.0.0.1:6379> LPOP mylist
-"hello"
-127.0.0.1:6379> RPOP mylist
-"!"
-
-# Type checking for lists
-127.0.0.1:6379> TYPE mylist
-list
-
-# Blocking operations (test with multiple terminals)
-# Terminal 1:
-127.0.0.1:6379> BLPOP waitlist 5
-# (waits for up to 5 seconds)
-
-# Terminal 2 (while Terminal 1 is waiting):
-127.0.0.1:6379> LPUSH waitlist "data"
-(integer) 1
-
-# Terminal 1 immediately receives:
-1) "waitlist"
-2) "data"
-
-# Infinite blocking (BLOCK 0)
-# Terminal 1:
-127.0.0.1:6379> BRPOP infinitelist 0
-# (waits indefinitely)
-
-# Terminal 2:
-127.0.0.1:6379> RPUSH infinitelist "finally"
-(integer) 1
-
-# Terminal 1 immediately receives:
-1) "infinitelist"
-2) "finally"
-```
-
-### **Phase 3: Streams & Advanced Blocking**
-
-```bash
-# Stream creation with auto-generated IDs
-127.0.0.1:6379> XADD mystream * name "Alice" age "30"
-"1754967302780-0"
-127.0.0.1:6379> XADD mystream * name "Bob" age "25"
-"1754967308123-0"
-
-# Stream creation with custom IDs
-127.0.0.1:6379> XADD teststream 1000-0 event "start"
-"1000-0"
-127.0.0.1:6379> XADD teststream 1000-1 event "progress"
-"1000-1"
-
-# Partial auto-generation (timestamp-sequence)
-127.0.0.1:6379> XADD partialstream 2000-* action "create"
-"2000-0"
-127.0.0.1:6379> XADD partialstream 2000-* action "update"
-"2000-1"
-
-# Stream querying
-127.0.0.1:6379> XRANGE mystream - +
-1) 1) "1754967302780-0"
-   2) 1) "name"
-      2) "Alice"
-      3) "age"
-      4) "30"
-2) 1) "1754967308123-0"
-   2) 1) "name"
-      2) "Bob"
-      3) "age"
-      4) "25"
-
-# Stream type checking
-127.0.0.1:6379> TYPE mystream
-stream
-
-# XREAD - reading from specific ID
-127.0.0.1:6379> XREAD STREAMS mystream 1754967302780-0
-1) 1) "mystream"
-   2) 1) 1) "1754967308123-0"
-         2) 1) "name"
-            2) "Bob"
-            3) "age"
-            4) "25"
-
-# XREAD with COUNT limit
-127.0.0.1:6379> XREAD COUNT 1 STREAMS mystream 0-0
-1) 1) "mystream"
-   2) 1) 1) "1754967302780-0"
-         2) 1) "name"
-            2) "Alice"
-            3) "age"
-            4) "30"
-
-#  **Advanced Blocking Features**
-
-# Blocking XREAD with timeout (test with multiple terminals)
-# Terminal 1:
-127.0.0.1:6379> XREAD BLOCK 5000 STREAMS livestream $
-# (waits for up to 5 seconds for new data)
-
-# Terminal 2 (while Terminal 1 is waiting):
-127.0.0.1:6379> XADD livestream * event "real-time" data "immediate"
-"1754967414819-0"
-
-# Terminal 1 immediately receives (within ~1 second):
-1) 1) "livestream"
-   2) 1) 1) "1754967414819-0"
-         2) 1) "event"
-            2) "real-time"
-            3) "data"
-            4) "immediate"
-
-# Infinite blocking (BLOCK 0)
-# Terminal 1:
-127.0.0.1:6379> XREAD BLOCK 0 STREAMS waitstream $
-# (waits indefinitely)
-
-# Terminal 2:
-127.0.0.1:6379> XADD waitstream * message "finally here"
-"1754967420156-0"
-
-# Terminal 1 immediately receives:
-1) 1) "waitstream"
-   2) 1) 1) "1754967420156-0"
-         2) 1) "message"
-            2) "finally here"
-
-# Multiple streams blocking
-# Terminal 1:
-127.0.0.1:6379> XREAD BLOCK 10000 STREAMS stream1 stream2 $ $
-
-# Terminal 2:
-127.0.0.1:6379> XADD stream2 * data "from stream2"
-
-# Terminal 1 immediately receives data from stream2
-```
-
-### **Phase 4: Transactions & Discard**
-
-```bash
-# Basic INCR command functionality
-127.0.0.1:6379> INCR counter
-(integer) 1
-127.0.0.1:6379> INCR counter
-(integer) 2
-127.0.0.1:6379> GET counter
-"2"
-
-# INCR with existing numeric value
-127.0.0.1:6379> SET mynum "42"
-OK
-127.0.0.1:6379> INCR mynum
-(integer) 43
-127.0.0.1:6379> INCR mynum
-(integer) 44
-
-# INCR error handling - non-numeric values
-127.0.0.1:6379> SET mystring "hello"
-OK
-127.0.0.1:6379> INCR mystring
-(error) ERR value is not an integer or out of range
-
-# INCR error handling - wrong number of arguments
-127.0.0.1:6379> INCR
-(error) ERR wrong number of arguments for 'incr' command
-127.0.0.1:6379> INCR key1 key2
-(error) ERR wrong number of arguments for 'incr' command
-
-# INCR overflow protection
-127.0.0.1:6379> SET maxint "9223372036854775807"
-OK
-127.0.0.1:6379> INCR maxint
-(error) ERR increment or decrement would overflow
-
-# Empty transaction
-127.0.0.1:6379> MULTI
-OK
-127.0.0.1:6379(TX)> EXEC
-(empty array)
-
-# DISCARD command - cancel transaction
-127.0.0.1:6379> SET existing "before"
-OK
-127.0.0.1:6379> MULTI
-OK
-127.0.0.1:6379(TX)> SET existing "during"
-QUEUED
-127.0.0.1:6379(TX)> SET new "value"
-QUEUED
-127.0.0.1:6379(TX)> DISCARD
-OK
-127.0.0.1:6379> GET existing
-"before"
-127.0.0.1:6379> GET new
-(nil)
-
-# Nested MULTI error handling
-127.0.0.1:6379> MULTI
-OK
-127.0.0.1:6379(TX)> MULTI
-(error) ERR MULTI calls can not be nested
-
-# EXEC without MULTI error
-127.0.0.1:6379> EXEC
-(error) ERR EXEC without MULTI
-
-# DISCARD without MULTI error
-127.0.0.1:6379> DISCARD
-(error) ERR DISCARD without MULTI
-
-# Transaction with mixed data types
-127.0.0.1:6379> MULTI
-OK
-127.0.0.1:6379(TX)> SET stringkey "hello"
-QUEUED
-127.0.0.1:6379(TX)> LPUSH listkey "item1" "item2"
-QUEUED
-127.0.0.1:6379(TX)> INCR numkey
-QUEUED
-127.0.0.1:6379(TX)> XADD streamkey * field "value"
-QUEUED
-127.0.0.1:6379(TX)> LLEN listkey
-QUEUED
-127.0.0.1:6379(TX)> EXEC
-1) OK
-2) (integer) 2
-3) (integer) 1
-4) "1754967420156-0"
-5) (integer) 2
-
-
-# Transaction with list operations
-127.0.0.1:6379> MULTI
-OK
-127.0.0.1:6379(TX)> LPUSH mylist "first"
-QUEUED
-127.0.0.1:6379(TX)> RPUSH mylist "last"
-QUEUED
-127.0.0.1:6379(TX)> LRANGE mylist 0 -1
-QUEUED
-127.0.0.1:6379(TX)> LPOP mylist
-QUEUED
-127.0.0.1:6379(TX)> LLEN mylist
-QUEUED
-127.0.0.1:6379(TX)> EXEC
-1) (integer) 1
-2) (integer) 2
-3) 1) "first"
-   2) "last"
-4) "first"
-5) (integer) 1
-
-# Transaction with stream operations
-127.0.0.1:6379> MULTI
-OK
-127.0.0.1:6379(TX)> XADD txstream * event "start"
-QUEUED
-127.0.0.1:6379(TX)> XADD txstream * event "progress"
-QUEUED
-127.0.0.1:6379(TX)> XRANGE txstream - +
-QUEUED
-127.0.0.1:6379(TX)> EXEC
-1) "1754967430123-0"
-2) "1754967430124-0"
-3) 1) 1) "1754967430123-0"
-      2) 1) "event"
-         2) "start"
-   2) 1) "1754967430124-0"
-      2) 1) "event"
-         2) "progress"
-
-# Multiple concurrent transactions (test with multiple terminals)
-# Terminal 1:
-127.0.0.1:6379> MULTI
-OK
-127.0.0.1:6379(TX)> SET client1 "data1"
-QUEUED
-127.0.0.1:6379(TX)> INCR shared_counter
-QUEUED
-
-# Terminal 2 (simultaneously):
-127.0.0.1:6379> MULTI
-OK
-127.0.0.1:6379(TX)> SET client2 "data2"
-QUEUED
-127.0.0.1:6379(TX)> INCR shared_counter
-QUEUED
-
-# Terminal 1:
-127.0.0.1:6379(TX)> EXEC
-1) OK
-2) (integer) 1
-
-# Terminal 2:
-127.0.0.1:6379(TX)> EXEC
-1) OK
-2) (integer) 2
-
-# Verify both transactions executed independently:
-127.0.0.1:6379> GET client1
-"data1"
-127.0.0.1:6379> GET client2
-"data2"
-127.0.0.1:6379> GET shared_counter
-"2"
-
-# Transaction with TTL operations
-127.0.0.1:6379> MULTI
-OK
-127.0.0.1:6379(TX)> SET temp1 "value1" EX 60
-QUEUED
-127.0.0.1:6379(TX)> SET temp2 "value2"
-QUEUED
-127.0.0.1:6379(TX)> GET temp1
-QUEUED
-127.0.0.1:6379(TX)> EXEC
-1) OK
-2) OK
-3) "value1"
-
-# Complex transaction with error recovery
-127.0.0.1:6379> MULTI
-OK
-127.0.0.1:6379(TX)> SET key1 "100"
-QUEUED
-127.0.0.1:6379(TX)> INCR key1
-QUEUED
-127.0.0.1:6379(TX)> SET key2 "abc"
-QUEUED
-127.0.0.1:6379(TX)> INCR key2
-QUEUED
-127.0.0.1:6379(TX)> SET key3 "200"
-QUEUED
-127.0.0.1:6379(TX)> INCR key3
-QUEUED
-127.0.0.1:6379(TX)> EXEC
-1) OK
-2) (integer) 101
-3) OK
-4) (error) ERR value is not an integer or out of range
-5) OK
-6) (integer) 201
-
-# Transaction atomicity verification
-127.0.0.1:6379> SET balance "1000"
-OK
-127.0.0.1:6379> MULTI
-OK
-127.0.0.1:6379(TX)> INCR balance
-QUEUED
-127.0.0.1:6379(TX)> INCR balance
-QUEUED
-127.0.0.1:6379(TX)> INCR balance
-QUEUED
-127.0.0.1:6379(TX)> EXEC
-1) (integer) 1001
-2) (integer) 1002
-3) (integer) 1003
-127.0.0.1:6379> GET balance
-"1003"
-
-```
 
 ## Performance Features
 
-## 🚀 **Real-time Notifications**
-
-- **Immediate response**: Blocking commands return instantly when data arrives
-- **No polling**: Event-driven architecture using Go channels
-- **Concurrent safety**: Thread-safe operations with proper mutex usage
+### 🚀 **Real-time Notifications**
+- Immediate response when data arrives for blocking commands
+- Event-driven architecture using Go channels
+- No polling overhead
 
 ### 💪 **Concurrent Client Support**
-
-- **Multi-client**: Multiple redis-cli connections work simultaneously
-- **Independent blocking**: Each client can block on different keys/streams
-- **Resource cleanup**: Automatic client cleanup on disconnection
+- Multiple redis-cli connections work simultaneously
+- Independent blocking on different keys/streams
+- Automatic client cleanup on disconnection
 
 ### ⚡ **Memory Efficiency**
+- Modular storage with separated concerns
+- TTL support with automatic cleanup
+- Type-safe data structures
 
-- **Modular storage**: Separated concerns across focused modules
-- **TTL support**: Automatic expiry and cleanup
-- **Type safety**: Strong typing for different Redis data structures
+### 🔄 **Replication Efficiency**
+- Command propagation with size estimation
+- ACK-based tracking for lag monitoring
+- Efficient RESP encoding for network transfer
 
 ## Key Learning Outcomes
 
@@ -626,4 +278,13 @@ QUEUED
 - **Concurrency**: Goroutines, channels, mutexes, and thread-safe operations
 - **Memory Management**: TTL implementation and expiration handling
 - **Advanced Patterns**: Real-time blocking operations, event-driven architecture
+- **Distributed Systems**: Master-slave replication, command propagation, consistency
 - **Software Architecture**: Clean code principles, modular design, separation of concerns
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is open source and available under the MIT License.
