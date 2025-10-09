@@ -36,6 +36,8 @@ func Dispatch(args []string, conn net.Conn) {
 		handleEcho(args, conn)
 	case "INFO":
 		handleInfo(args, conn)
+	case "CONFIG":
+		handleConfig(args, conn)
 	case "GET":
 		handleGet(args, conn)
 	case "LINDEX":

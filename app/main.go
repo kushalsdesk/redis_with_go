@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/kushalsdesk/redis_with_go/server"
@@ -13,7 +14,12 @@ import (
 func main() {
 	port := flag.String("port", "6379", "Port to listen on")
 	replicaof := flag.String("replicaof", "", "Master host and port")
+	dir := flag.String("dir", ".", "Directory for RDB file")
+	dbfilename := flag.String("dbfilename", "dump.rdb", "RDB filename")
 	flag.Parse()
+
+	//Set Configuration first
+	store.SetConfig(*dir, *dbfilename)
 
 	// global port for replication handshake
 	serverPort := *port
@@ -32,6 +38,14 @@ func main() {
 	if *port == "" {
 		fmt.Println("Port cannot be empty")
 		os.Exit(1)
+	}
+
+	rdbPath := filepath.Join(*dir, *dbfilename)
+	if _, err := os.Stat(rdbPath); err == nil {
+		fmt.Printf("📦 RDB file found at %s\n", rdbPath)
+		fmt.Printf("⏳ RDB loading will be implemented in Step 5\n")
+	} else {
+		fmt.Printf("ℹ️  No RDB file found at %s, starting with empty dataset\n", rdbPath)
 	}
 
 	addr := fmt.Sprintf("0.0.0.0:%s", *port)

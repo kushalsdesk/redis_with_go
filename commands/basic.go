@@ -24,6 +24,47 @@ func handleEcho(args []string, conn net.Conn) {
 	conn.Write([]byte(resp))
 }
 
+func handleConfig(args []string, conn net.Conn) {
+	if len(args) < 2 {
+		conn.Write([]byte("-ERR wrong number of arguments for 'config' command\r\n"))
+		return
+	}
+
+	subcommand := strings.ToUpper(args[1])
+
+	switch subcommand {
+	case "GET":
+		handleConfigGet(args, conn)
+	case "SET":
+		conn.Write([]byte("-ERR CONFIG SET is not supported\r\n"))
+	default:
+		conn.Write([]byte(fmt.Sprintf("-ERR unknown CONFIG subcommand '%s'\r\n", subcommand)))
+	}
+}
+
+func handleConfigGet(args []string, conn net.Conn) {
+
+	if len(args) != 3 {
+		conn.Write([]byte("-ERR wrong number of arguments for 'config get' command \r\n"))
+		return
+	}
+
+	parameter := strings.ToLower(args[2])
+
+	value, exists := store.GetConfigValue(parameter)
+
+	if !exists {
+		conn.Write([]byte("*0\r\n"))
+		return
+	}
+
+	resp := fmt.Sprintf("*2\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n",
+		len(parameter), parameter,
+		len(value), value)
+	conn.Write([]byte(resp))
+
+}
+
 func handleInfo(args []string, conn net.Conn) {
 	replState := store.GetReplicationState()
 	section := ""

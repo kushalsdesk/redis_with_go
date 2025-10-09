@@ -40,6 +40,11 @@ type RedisValue struct {
 	Expiry *time.Time
 }
 
+type ServerConfig struct {
+	Dir        string
+	DBFilename string
+}
+
 type ReplicationState struct {
 	Role             string
 	MasterHost       string
@@ -74,7 +79,48 @@ var (
 		ReplicaConns:     make(map[string]*ReplicationConnection),
 	}
 	replicationMutex sync.RWMutex
+
+	serverConfig ServerConfig
+	configMutex  sync.RWMutex
 )
+
+func SetConfig(dir, dbfilename string) {
+	configMutex.Lock()
+	defer configMutex.Unlock()
+
+	serverConfig = ServerConfig{
+		Dir:        dir,
+		DBFilename: dbfilename,
+	}
+	fmt.Printf("⚙️  Configuration set: dir=%s, dbfilename=%s\n", dir, dbfilename)
+
+}
+
+func GetConfig() ServerConfig {
+	configMutex.RLock()
+	defer configMutex.RUnlock()
+
+	return ServerConfig{
+		Dir:        serverConfig.Dir,
+		DBFilename: serverConfig.DBFilename,
+	}
+}
+
+func GetConfigValue(key string) (string, bool) {
+	configMutex.RLock()
+	defer configMutex.RUnlock()
+
+	switch key {
+	case "dir":
+		return serverConfig.Dir, true
+
+	case "dbfilename":
+		return serverConfig.DBFilename, true
+	default:
+		return "", false
+	}
+
+}
 
 func getReplicaID(conn net.Conn) string {
 	return conn.RemoteAddr().String()
