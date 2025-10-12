@@ -18,7 +18,7 @@ func main() {
 	dbfilename := flag.String("dbfilename", "dump.rdb", "RDB filename")
 	flag.Parse()
 
-	//Set Configuration first
+	// Set configuration first
 	store.SetConfig(*dir, *dbfilename)
 
 	// global port for replication handshake
@@ -44,15 +44,16 @@ func main() {
 	if _, err := os.Stat(rdbPath); err == nil {
 		fmt.Printf("📦 RDB file found at %s\n", rdbPath)
 		fmt.Printf("⏳ RDB loading will be implemented in Step 5\n")
+		// Future: rdb.LoadRDB(rdbPath)
 	} else {
 		fmt.Printf("ℹ️  No RDB file found at %s, starting with empty dataset\n", rdbPath)
 	}
 
 	addr := fmt.Sprintf("0.0.0.0:%s", *port)
 	if *replicaof != "" {
-		fmt.Printf("Starting Redis server as replica of %s on %s ", *replicaof, addr)
+		fmt.Printf("Starting Redis server as replica of %s on %s\n", *replicaof, addr)
 	} else {
-		fmt.Printf("Starting Redis server as master on %s", addr)
+		fmt.Printf("Starting Redis server as master on %s\n", addr)
 	}
 
 	if *replicaof != "" {

@@ -127,6 +127,10 @@ Along the way, we'll learn about TCP servers, the Redis Protocol, data structure
 redis_with_go/
 ├── app/
 │   └── main.go                       # Application entry point with CLI flags & server initialization
+├── rdb/
+│   ├── encoding.go                     # Utility functions for binary  parsing
+│   ├── parser.go                       # Core RDB file parsing logic
+│   └── loader.go                       # High Level loading orchestration
 │
 ├── server/
 │   ├── server.go                     # TCP server setup and connection acceptance
