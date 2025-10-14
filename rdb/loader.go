@@ -66,13 +66,12 @@ func LoadRDB(filepath string) error {
 				return fmt.Errorf("failed to parse database selector: %w", err)
 			}
 
-			if dbNum != 0 {
-				fmt.Printf("⚠️  Warning: RDB contains database %d, but only database 0 is supported\n", dbNum)
-				// Continue anyway - we'll load it into database 0
-			}
-
 			currentDB = dbNum
 			fmt.Printf("📂 Loading database %d\n", dbNum)
+
+			if dbNum != 0 {
+				fmt.Printf("⚠️  Warning: RDB contains database %d, but only database 0 is supported\n", dbNum)
+			}
 			continue
 
 		case OpResizeDB:
@@ -102,7 +101,7 @@ func LoadRDB(filepath string) error {
 			// Parsing key-value pair
 			kv, err := parseKeyValuePair(reader)
 			if err != nil {
-				return fmt.Errorf("failed to parse key-value pair: %w", err)
+				return fmt.Errorf("failed to parse key-value pair at database %d: %w", currentDB, err)
 			}
 
 			if kv == nil {
@@ -119,6 +118,9 @@ func LoadRDB(filepath string) error {
 
 			if loaded {
 				totalKeys++
+				// if totalKeys%1000 == 0 {
+				// 	fmt.Printf("⏳ Loaded %d keys...\n", totalKeys)
+				// }
 			} else {
 				skippedKeys++
 			}
@@ -127,13 +129,11 @@ func LoadRDB(filepath string) error {
 }
 
 func storeKeyValue(kv *KeyValue) (bool, error) {
-	// Check if key is expired
-	if kv.Expiry != nil {
-		if time.Now().After(*kv.Expiry) {
-			return false, nil
-		}
+	if kv.Expiry != nil && time.Now().After(*kv.Expiry) {
+		return false, nil
 	}
 
+	// Calculate TTL if expiry exists
 	var ttl time.Duration
 	if kv.Expiry != nil {
 		ttl = time.Until(*kv.Expiry)
@@ -149,11 +149,7 @@ func storeKeyValue(kv *KeyValue) (bool, error) {
 			return false, fmt.Errorf("expected string value, got %T", kv.Value)
 		}
 
-		if ttl > 0 {
-			store.Set(kv.Key, value, ttl)
-		} else {
-			store.Set(kv.Key, value, 0)
-		}
+		store.Set(kv.Key, value, ttl)
 		return true, nil
 
 	case TypeList, TypeListQuicklist:

@@ -41,6 +41,10 @@ func readBytes(reader *bufio.Reader, n int) ([]byte, error) {
 		return []byte{}, nil
 	}
 
+	if n > 512*1024*1024 {
+		return nil, fmt.Errorf("refusing to read excessive byte count: %d", n)
+	}
+
 	buf := make([]byte, n)
 	_, err := io.ReadFull(reader, buf)
 	if err != nil {

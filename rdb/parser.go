@@ -193,6 +193,7 @@ func parseValue(reader *bufio.Reader, valueType byte) (interface{}, error) {
 func parseKeyValuePair(reader *bufio.Reader) (*KeyValue, error) {
 	var expiry *time.Time
 
+	//Read the first opcode/value-type byte
 	opcode, err := readByte(reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read opcode: %w", err)
@@ -211,6 +212,7 @@ func parseKeyValuePair(reader *bufio.Reader) (*KeyValue, error) {
 		if err != nil {
 			return nil, err
 		}
+		//Read the actual value type that follows the expiry
 		opcode, err = readByte(reader)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read value type after expiry: %w", err)

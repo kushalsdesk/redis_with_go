@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kushalsdesk/redis_with_go/rdb"
 	"github.com/kushalsdesk/redis_with_go/server"
 	"github.com/kushalsdesk/redis_with_go/store"
 )
@@ -43,8 +44,10 @@ func main() {
 	rdbPath := filepath.Join(*dir, *dbfilename)
 	if _, err := os.Stat(rdbPath); err == nil {
 		fmt.Printf("📦 RDB file found at %s\n", rdbPath)
-		fmt.Printf("⏳ RDB loading will be implemented in Step 5\n")
-		// Future: rdb.LoadRDB(rdbPath)
+		if err := rdb.LoadRDB(rdbPath); err != nil {
+			fmt.Printf("❌ Failed to load RDB file: %v\n", err)
+			fmt.Printf("⚠️  Starting with empty dataset\n")
+		}
 	} else {
 		fmt.Printf("ℹ️  No RDB file found at %s, starting with empty dataset\n", rdbPath)
 	}
