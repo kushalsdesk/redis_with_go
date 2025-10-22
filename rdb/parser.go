@@ -28,6 +28,12 @@ const (
 	TypeHashZL        = 0x0D
 	TypeListQuicklist = 0x0E
 	TypeStream        = 0x0F
+
+	TypeHashListpack    = 0x10
+	TypeZSet2           = 0x11
+	TypeStreamListpack  = 0x13
+	TypeHashZipmap2     = 0x14
+	TypeStreamListpack2 = 0x15
 )
 
 type KeyValue struct {
@@ -161,9 +167,36 @@ func parseStringValue(reader *bufio.Reader) (string, error) {
 }
 
 func parseListValue(reader *bufio.Reader, valueType byte) ([]string, error) {
-	return nil, fmt.Errorf("list parsing not implemented yet (type 0x%02X)", valueType)
+	return nil, fmt.Errorf("stream parsing not implemented yet")
+	//		switch valueType {
+	//		case TypeList:
+	//			return parseSimpleList(reader)
+	//		case TypeListQuicklist:
+	//			return parseQuickList(reader)
+	//		default:
+	//			return nil, fmt.Errorf("unsupported list type: 0x%02X", valueType)
+	//		}
+	//	}
+	//
+	//	func parseSimpleList(reader *bufio.Reader) ([]string, error) {
+	//		length, _, err := readLength(reader)
+	//		if err != nil {
+	//			return nil, fmt.Errorf("failed to read list length: %w", err)
+	//		}
+	//		if length == 0 {
+	//			return []string{}, nil
+	//		}
+	//
+	//		elements := make([]string, length)
+	//		for i:= uint64(0); i< length ; i++{
+	//			element, err:=
+	//		}
+	//
+	// }
+	// func parseQuickList(reader *bufio.Reader) ([]string, error) {
+	//
+	// }
 }
-
 func parseStreamValue(reader *bufio.Reader) (interface{}, error) {
 	return nil, fmt.Errorf("stream parsing not implemented yet")
 }
@@ -184,6 +217,9 @@ func parseValue(reader *bufio.Reader, valueType byte) (interface{}, error) {
 
 	case TypeZiplist, TypeZipmap, TypeIntset, TypeSortedSetZL, TypeHashZL:
 		return nil, fmt.Errorf("compressed type 0x%02X not implemented yet", valueType)
+
+	case TypeHashListpack, TypeZSet2, TypeHashZipmap2:
+		return nil, fmt.Errorf("listpack/zipmap type 0x%02X not implemented yet", valueType)
 
 	default:
 		return nil, fmt.Errorf("unknown value type: 0x%02X", valueType)

@@ -155,7 +155,7 @@ func storeKeyValue(kv *KeyValue) (bool, error) {
 	case TypeList, TypeListQuicklist:
 		return false, fmt.Errorf("list type not implemented yet")
 
-	case TypeStream:
+	case TypeStream, TypeStreamListpack, TypeStreamListpack2:
 		return false, fmt.Errorf("stream type not implemented yet")
 
 	default:
