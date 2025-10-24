@@ -152,8 +152,25 @@ func storeKeyValue(kv *KeyValue) (bool, error) {
 		store.Set(kv.Key, value, ttl)
 		return true, nil
 
-	case TypeList, TypeListQuicklist:
-		return false, fmt.Errorf("list type not implemented yet")
+	case TypeList, TypeListQuicklist, TypeListQuicklist2: // MODIFY THIS LINE
+		elements, ok := kv.Value.([]string)
+		if !ok {
+			return false, fmt.Errorf("expected list value, got %T", kv.Value)
+		}
+
+		if len(elements) == 0 {
+			// Empty list - still create it
+			store.CreateEmptyList(kv.Key, ttl)
+			return true, nil
+		}
+
+		// Store list using RPUSH to maintain order
+		length := store.ListPushBulk(kv.Key, elements, false, ttl)
+		if length == -1 {
+			return false, fmt.Errorf("failed to create list")
+		}
+
+		return true, nil
 
 	case TypeStream, TypeStreamListpack, TypeStreamListpack2:
 		return false, fmt.Errorf("stream type not implemented yet")

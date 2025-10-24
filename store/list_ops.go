@@ -212,3 +212,60 @@ func ListPush(key string, elements []string, left bool) int {
 	dataMutex.Lock()
 	return length
 }
+
+// CreateEmptyList creates an empty list (used when loading empty lists from RDB)
+func CreateEmptyList(key string, ttl time.Duration) {
+	dataMutex.Lock()
+	defer dataMutex.Unlock()
+
+	value := &RedisValue{
+		Type: LIST,
+		List: make([]string, 0),
+	}
+
+	if ttl > 0 {
+		expiry := time.Now().Add(ttl)
+		value.Expiry = &expiry
+	}
+
+	data[key] = value
+}
+
+// ListPushBulk pushes multiple elements without notifying blocking clients
+// Used for efficient RDB loading
+func ListPushBulk(key string, elements []string, left bool, ttl time.Duration) int {
+	dataMutex.Lock()
+	defer dataMutex.Unlock()
+
+	value, exists := data[key]
+	if !exists {
+		value = &RedisValue{
+			Type: LIST,
+			List: make([]string, 0),
+		}
+
+		if ttl > 0 {
+			expiry := time.Now().Add(ttl)
+			value.Expiry = &expiry
+		}
+
+		data[key] = value
+	}
+
+	if value.Type != LIST {
+		return -1
+	}
+
+	// Add elements
+	if left {
+		// LPUSH: prepend elements (reverse order for multiples)
+		for i := len(elements) - 1; i >= 0; i-- {
+			value.List = append([]string{elements[i]}, value.List...)
+		}
+	} else {
+		// RPUSH: append elements (maintains RDB order)
+		value.List = append(value.List, elements...)
+	}
+
+	return len(value.List)
+}
